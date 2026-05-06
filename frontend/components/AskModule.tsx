@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Bot, User, Loader2, Paperclip, X, FileText, Send, Mic, Video, FileQuestion, Layers, Check, ChevronRight, ChevronLeft, RefreshCw, CornerDownLeft, Plus, Play, MessageSquare, Clapperboard, Volume2, Menu, Trash2 } from 'lucide-react';
 import { ChatMessage, Attachment, QuizData, FlashcardData } from '../types';
+import { API_BASE_URL, VIDEO_API_BASE_URL } from '../config';
 
 type ToolMode = 'TEXT' | 'VIDEO' | 'QUIZ' | 'FLASHCARDS';
 type VideoSubMode = 'TALK' | 'MOVE';
@@ -82,8 +83,7 @@ const AskModule: React.FC = () => {
       
       const speakText = async (text: string) => {
         try {
-          const response = await fetch(`http://127.0.0.1:8000/tts/answer?text=${encodeURIComponent(text)}`, {
-          // const response = await fetch(`http://127.0.0.1:8000/tts/answer?text=${encodeURIComponent(text)}`, {
+          const response = await fetch(`${API_BASE_URL}/tts/answer?text=${encodeURIComponent(text)}`, {
             method: 'POST',
           });
           
@@ -113,8 +113,7 @@ const AskModule: React.FC = () => {
   const loadChatList = async () => {
     setChatListLoading(true);
     try {
-      // const response = await fetch('http://127.0.0.1:8000/chats');
-      const response = await fetch('http://127.0.0.1:8000/chats');
+      const response = await fetch(`${API_BASE_URL}/chats`);
 
       if (response.ok) {
         const data = await response.json();
@@ -128,8 +127,7 @@ const AskModule: React.FC = () => {
 
   const loadChatMessages = async (chatId: string) => {
     try {
-      // const response = await fetch(`http://127.0.0.1:8000/chats/${chatId}/messages`);
-      const response = await fetch(`http://127.0.0.1:8000/chats/${chatId}/messages`);
+      const response = await fetch(`${API_BASE_URL}/chats/${chatId}/messages`);
 
       if (response.ok) {
         const data = await response.json();
@@ -156,7 +154,7 @@ const AskModule: React.FC = () => {
 
   const createNewChat = async () => {
     try {
-      const response = await fetch('http://127.0.0.1:8000/chats', {
+      const response = await fetch(`${API_BASE_URL}/chats`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: null })
@@ -178,7 +176,7 @@ const AskModule: React.FC = () => {
   const deleteChat = async (chatId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      const response = await fetch(`http://127.0.0.1:8000/chats/${chatId}`, {
+      const response = await fetch(`${API_BASE_URL}/chats/${chatId}`, {
         method: 'DELETE'
       });
       
@@ -234,7 +232,7 @@ const AskModule: React.FC = () => {
       }
 
       try {
-        const response = await fetch(`http://127.0.0.1:8001/video/${videoId}`);
+        const response = await fetch(`${VIDEO_API_BASE_URL}/video/${videoId}`);
         if (response.ok) {
           const blob = await response.blob();
           const videoUrl = URL.createObjectURL(blob);
@@ -319,7 +317,7 @@ const AskModule: React.FC = () => {
   //     formData.append('file', file);
       
   //     try {
-  //       const response = await fetch(`http://127.0.0.1:8000/qa/upload-doc?chat_id=${activeChat}`, {
+  //       const response = await fetch(`${API_BASE_URL}/qa/upload-doc?chat_id=${activeChat}`, {
   //         method: 'POST',
   //         body: formData,
   //       });
@@ -393,7 +391,7 @@ const AskModule: React.FC = () => {
 
     try {
       const response = await fetch(
-        `http://127.0.0.1:8000/qa/upload-doc?chat_id=${activeChat}`,
+        `${API_BASE_URL}/qa/upload-doc?chat_id=${activeChat}`,
         { method: 'POST', body: formData }
       );
 
@@ -444,7 +442,7 @@ const AskModule: React.FC = () => {
       setQuizFinished(false);
       
       try {
-        const response = await fetch(`http://127.0.0.1:8000/quiz/${documentId}?count=5`, {
+        const response = await fetch(`${API_BASE_URL}/quiz/${documentId}?count=5`, {
           method: 'GET',
         });
         
@@ -485,7 +483,7 @@ const AskModule: React.FC = () => {
       setFlashcardData(null);
       
       try {
-        const response = await fetch(`http://127.0.0.1:8000/flashcards/${documentId}?count=10`, {
+        const response = await fetch(`${API_BASE_URL}/flashcards/${documentId}?count=10`, {
           method: 'GET',
         });
         
@@ -532,13 +530,13 @@ const AskModule: React.FC = () => {
             const formData = new FormData();
             formData.append('image', imageAttachment.file!);
             
-            response = await fetch(`http://127.0.0.1:8000/qa/ask-from-image?chat_id=${activeChat}&document_id=${documentId || ''}&video_enabled=${videoEnabled}&face_enabled=${faceEnabled}&image_path=${imageAttachment.url}`, {
+            response = await fetch(`${API_BASE_URL}/qa/ask-from-image?chat_id=${activeChat}&document_id=${documentId || ''}&video_enabled=${videoEnabled}&face_enabled=${faceEnabled}&image_path=${imageAttachment.url}`, {
               method: 'POST',
               body: formData,
             });
           }
         } else {
-          response = await fetch(`http://127.0.0.1:8000/qa/ask?chat_id=${activeChat}&question=${encodeURIComponent(userMsg.text)}&document_id=${documentId || ''}&video_enabled=${videoEnabled}&face_enabled=${faceEnabled}`, {
+          response = await fetch(`${API_BASE_URL}/qa/ask?chat_id=${activeChat}&question=${encodeURIComponent(userMsg.text)}&document_id=${documentId || ''}&video_enabled=${videoEnabled}&face_enabled=${faceEnabled}`, {
             method: 'POST',
           });
         }

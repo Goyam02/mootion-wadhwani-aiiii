@@ -1,0 +1,46 @@
+# Use official lightweight Python image
+FROM python:3.11-slim
+
+# Set environment variables (good defaults)
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+# Set working directory inside container
+WORKDIR /app
+
+# Install system dependencies (optional, extend if needed)
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    pkg-config \
+    libcairo2-dev \
+    libpango1.0-dev \
+    libglib2.0-dev \
+    libffi-dev \
+    texlive-latex-base \
+    texlive-latex-extra \
+    texlive-fonts-recommended \
+    texlive-luatex \
+    dvipng \
+    ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
+
+
+# Copy dependency file first (for caching)
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy project files
+COPY . .
+
+# Create non-root user (security best practice)
+RUN useradd -m appuser
+USER appuser
+
+# Expose port (optional, just documentation)
+# EXPOSE 8000
+ENV PYTHONPATH=/app/app
+# Default command (change based on your app)
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001"]

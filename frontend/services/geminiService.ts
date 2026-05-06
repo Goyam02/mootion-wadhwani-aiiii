@@ -1,8 +1,9 @@
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { PlanData, Attachment, QuizData, FlashcardData, GraphData, DragDropGameData, MistakeGameData } from '../types';
+import { API_BASE_URL } from '../config';
 
 // Ensure API Key is present
-const apiKey = process.env.API_KEY;
+const apiKey = process.env.VITE_API_KEY;
 if (!apiKey) {
   console.error("API_KEY is missing from environment variables.");
 }
@@ -123,7 +124,7 @@ export const generateMindMap = async (prompt: string, attachments: Attachment[])
     const localParts = [...parts];
     if (prompt) localParts.push({ text: prompt });
 
-    const localResponse = await fetch('http://127.0.0.1:8000/plan', {
+    const localResponse = await fetch(`${API_BASE_URL}/plan`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

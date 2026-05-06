@@ -14,7 +14,7 @@ import requests
 
 router = APIRouter(prefix="/qa", tags=["Document Ask Endpoints"])
 
-MANIM_SERVICE_URL = "http://127.0.0.1:8001/explain"
+MANIM_SERVICE_URL = "http://manim-engine:8001/explain"
 
 @router.post("/upload-doc")
 async def upload_file(

@@ -1,45 +1,30 @@
 {
-  "category": "maths",
+  "category": "physics",
   "scenes": [
     {
       "scene_id": 1,
-      "concept": "Definition of a quadratic equation",
-      "visual": "Display the general form ax^2 + bx + c = 0 with animated coefficients"
+      "concept": "Introduction to Newton's Laws of Motion",
+      "visual": "Display the title 'Newton's Laws of Motion' centered on screen with three labeled boxes below it numbered 1, 2, and 3, each representing one law."
     },
     {
       "scene_id": 2,
-      "concept": "Graph of a quadratic function",
-      "visual": "Plot a parabola y = ax^2 + bx + c showing vertex and axis of symmetry"
+      "concept": "First Law - Law of Inertia",
+      "visual": "Show a stationary circle on the left side of the screen labeled 'Object at Rest' that remains still. Next to it, show a circle moving horizontally at constant speed labeled 'Object in Motion'. Then animate an arrow labeled 'External Force' pushing the moving circle, causing it to accelerate."
     },
     {
       "scene_id": 3,
-      "concept": "Standard form and vertex form",
-      "visual": "Transform equation from standard form to vertex form with step-by-step animation"
+      "concept": "Second Law - Law of Acceleration (F=ma)",
+      "visual": "Display the formula 'F = m \u00d7 a' prominently. Show two squares of different sizes labeled with different masses (m1 < m2). Animate equal force arrows pushing both squares, with the smaller mass square accelerating faster (longer motion arrow) and the larger mass square accelerating slower (shorter motion arrow)."
     },
     {
       "scene_id": 4,
-      "concept": "Factoring method",
-      "visual": "Show factoring of a quadratic expression into two binomials visually"
+      "concept": "Third Law - Law of Action and Reaction",
+      "visual": "Show two circles facing each other labeled 'Object A' and 'Object B'. Animate arrows from Object A to Object B and from Object B to Object A, equal in length but opposite in direction, labeled 'Action Force' and 'Reaction Force'."
     },
     {
       "scene_id": 5,
-      "concept": "Completing the square",
-      "visual": "Illustrate completing the square process with geometric squares and algebraic steps"
-    },
-    {
-      "scene_id": 6,
-      "concept": "Quadratic formula derivation",
-      "visual": "Animate the derivation of the quadratic formula from the general equation"
-    },
-    {
-      "scene_id": 7,
-      "concept": "Using the quadratic formula",
-      "visual": "Substitute values into the quadratic formula and solve for roots visually"
-    },
-    {
-      "scene_id": 8,
-      "concept": "Discriminant and nature of roots",
-      "visual": "Show discriminant calculation and illustrate different root types on the graph"
+      "concept": "Summary of Newton's Laws",
+      "visual": "Show all three laws' key points as text bullet points on screen with simple icons: a stationary/moving object for the first law, formula F=ma for the second, and two opposing arrows for the third."
     }
   ]
 }

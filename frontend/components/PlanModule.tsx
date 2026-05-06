@@ -2,6 +2,7 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { ReactFlow, Background, Controls, MiniMap, Node, Edge, useNodesState, useEdgesState, Connection, addEdge, BackgroundVariant, MarkerType, useReactFlow, ReactFlowProvider, Handle, Position } from '@xyflow/react';
 import { Send, Mic, Loader2, X, FileText, Upload, Bot, Clock, Trash2, ChevronRight, ChevronLeft, Plus, RotateCcw } from 'lucide-react';
 import { Attachment } from '../types';
+import { API_BASE_URL } from '../config';
 import dagre from 'dagre';
 
 // Types
@@ -158,7 +159,7 @@ const PlanModuleContent: React.FC = () => {
   const fetchSavedRoadmaps = async () => {
     setLoadingRoadmaps(true);
     try {
-      const response = await fetch('http://127.0.0.1:8000/roadmap/list');
+      const response = await fetch(`${API_BASE_URL}/roadmap/list`);
       if (response.ok) {
         const data = await response.json();
         setSavedRoadmaps(data);
@@ -199,7 +200,7 @@ const PlanModuleContent: React.FC = () => {
     setLoading(true);
     setLoadingMessage('LOADING ROADMAP...');
     try {
-      const response = await fetch(`http://127.0.0.1:8000/roadmap/${roadmapId}`);
+      const response = await fetch(`${API_BASE_URL}/roadmap/${roadmapId}`);
       if (response.ok) {
         const data = await response.json();
         const roadmapData = data.roadmap_data;
@@ -249,7 +250,7 @@ const PlanModuleContent: React.FC = () => {
     if (!confirm('Delete this roadmap?')) return;
     
     try {
-      const response = await fetch(`http://127.0.0.1:8000/roadmap/${roadmapId}`, {
+      const response = await fetch(`${API_BASE_URL}/roadmap/${roadmapId}`, {
         method: 'DELETE'
       });
       
@@ -280,7 +281,7 @@ const PlanModuleContent: React.FC = () => {
       formData.append('file', file);
       
       try {
-        const response = await fetch('http://127.0.0.1:8000/qa/upload-doc', {
+        const response = await fetch(`${API_BASE_URL}/qa/upload-doc`, {
           method: 'POST',
           body: formData,
         });
@@ -330,7 +331,7 @@ const PlanModuleContent: React.FC = () => {
     setCurrentRoadmapId(null);
 
     try {
-      const response = await fetch('http://127.0.0.1:8000/roadmap/', {
+      const response = await fetch(`${API_BASE_URL}/roadmap/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

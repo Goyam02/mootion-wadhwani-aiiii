@@ -1,34 +1,22 @@
 [
   {
     "scene_id": 1,
-    "script": "A quadratic equation is a polynomial equation of degree two, which means the highest power of the variable is two. It is generally written as ax squared plus bx plus c equals zero, where a, b, and c are constants, and a is not zero."
+    "script": "Welcome to Newton's Laws of Motion. These three fundamental laws explain how objects move and interact with forces in our world."
   },
   {
     "scene_id": 2,
-    "script": "The graph of a quadratic function is called a parabola. It is a U-shaped curve that opens upwards if a is positive, and downwards if a is negative. The highest or lowest point on the parabola is called the vertex, and the vertical line through the vertex is the axis of symmetry."
+    "script": "The first law, called the Law of Inertia, tells us that an object at rest stays at rest, and an object in motion keeps moving at the same speed and direction, unless acted on by an external force."
   },
   {
     "scene_id": 3,
-    "script": "We can rewrite a quadratic equation from its standard form, ax squared plus bx plus c, into vertex form, which is a times the quantity x minus h squared plus k. This form makes it easy to identify the vertex at the point h, k. We do this by completing the square step by step."
+    "script": "Newton's second law explains how force, mass, and acceleration are related. It says force equals mass times acceleration, meaning heavier objects need more force to speed up."
   },
   {
     "scene_id": 4,
-    "script": "One way to solve a quadratic equation is by factoring. This means expressing the quadratic expression as a product of two binomials. When we set each binomial equal to zero, we can find the roots of the equation."
+    "script": "The third law states that for every action, there is an equal and opposite reaction. When one object pushes another, the second pushes back with the same force in the opposite direction."
   },
   {
     "scene_id": 5,
-    "script": "Completing the square is a method where we transform a quadratic expression into a perfect square trinomial. We do this by adding and subtracting the same value, which allows us to write the expression as a squared binomial plus or minus a constant."
-  },
-  {
-    "scene_id": 6,
-    "script": "The quadratic formula is derived by completing the square on the general quadratic equation ax squared plus bx plus c equals zero. This process leads to a formula that directly gives the solutions for x in terms of a, b, and c."
-  },
-  {
-    "scene_id": 7,
-    "script": "To use the quadratic formula, we substitute the values of a, b, and c from the quadratic equation into the formula. Then, we calculate the discriminant, perform the square root, and simplify to find the two possible roots of the equation."
-  },
-  {
-    "scene_id": 8,
-    "script": "The discriminant, found by b squared minus four a c, tells us about the nature of the roots of a quadratic equation. If it is positive, there are two real roots; if zero, one real root; and if negative, two complex roots. This is reflected in the graph by how the parabola intersects the x-axis."
+    "script": "To summarize, Newton's first law describes inertia, the second law connects force, mass, and acceleration, and the third law explains action and reaction forces working in pairs."
   }
 ]

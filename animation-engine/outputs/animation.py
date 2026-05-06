@@ -1,168 +1,142 @@
 from manim import *
 
-class Scene1_Introductiontoquadraticequations(Scene):
+class Scene1_IntroductiontoNewtonsLawsofMotion(Scene):
     def construct(self):
-        eq = MathTex(r"ax^2 + bx + c = 0")
-        eq.set_opacity(0)
-        self.play(FadeIn(eq, run_time=2))
+        title = Text("Newton's Laws of Motion").to_edge(UP)
+        box1 = Square(side_length=1).set_fill(BLUE, opacity=0.5).set_stroke(BLUE, width=2)
+        box2 = Square(side_length=1).set_fill(GREEN, opacity=0.5).set_stroke(GREEN, width=2)
+        box3 = Square(side_length=1).set_fill(RED, opacity=0.5).set_stroke(RED, width=2)
+        box1.move_to(3*LEFT + DOWN)
+        box2.move_to(DOWN)
+        box3.move_to(3*RIGHT + DOWN)
+        label1 = MathTex(r"1").move_to(box1.get_center())
+        label2 = MathTex(r"2").move_to(box2.get_center())
+        label3 = MathTex(r"3").move_to(box3.get_center())
+        self.play(Write(title))
+        self.wait(1)
+        self.play(Create(box1), Write(label1))
+        self.wait(1)
+        self.play(Create(box2), Write(label2))
+        self.wait(1)
+        self.play(Create(box3), Write(label3))
+        self.wait(2)
+
+class Scene2_FirstLawLawofInertia(Scene):
+    def construct(self):
+        # Stationary circle on left
+        circle_rest = Circle(radius=0.5, color=BLUE).to_edge(LEFT).shift(UP*0.5)
+        label_rest = Tex("Object at Rest").next_to(circle_rest, DOWN)
+        # Moving circle on right
+        circle_motion = Circle(radius=0.5, color=GREEN).to_edge(LEFT).shift(DOWN*1.5 + RIGHT*2)
+        label_motion = Tex("Object in Motion").next_to(circle_motion, DOWN)
+        # Arrow for motion (constant speed)
+        motion_arrow = Arrow(start=circle_motion.get_left(), end=circle_motion.get_right() + RIGHT*1.5, buff=0, color=GREEN)
+        # External force arrow
+        force_arrow = Arrow(start=circle_motion.get_right() + RIGHT*0.2, end=circle_motion.get_right() + RIGHT*2, buff=0, color=RED)
+        force_label = Tex("External Force").next_to(force_arrow, UP)
+
+        self.play(Create(circle_rest), Write(label_rest))
+        self.wait(1)
+        self.play(Create(circle_motion), Write(label_motion))
+        self.wait(1)
+        self.play(Create(motion_arrow))
+        self.wait(1)
+        self.play(Create(force_arrow), Write(force_label))
+        self.wait(1)
+
+        # Animate acceleration: move circle_motion to right with increasing speed
+        self.play(circle_motion.animate.shift(RIGHT*2), motion_arrow.animate.shift(RIGHT*2), force_arrow.animate.shift(RIGHT*2), force_label.animate.shift(RIGHT*2), label_motion.animate.shift(RIGHT*2), run_time=2)
+        self.wait(2)
+
+class Scene3_SecondLawLawofAccelerationFma(Scene):
+    def construct(self):
+        formula = MathTex(r"F", r"=", r"m", r"\times", r"a").scale(2).to_edge(UP)
+        self.play(Write(formula))
+        self.wait(2)
+
+        # Two squares of different sizes
+        square_small = Square(side_length=1, color=BLUE).shift(LEFT*3 + DOWN*0.5)
+        label_small = MathTex(r"m_1 < m_2").next_to(square_small, DOWN)
+        square_large = Square(side_length=1.8, color=GREEN).shift(RIGHT*2 + DOWN*0.5)
+        label_large = MathTex(r"m_2").next_to(square_large, DOWN)
+
+        # Equal force arrows pushing both squares
+        force_arrow_small = Arrow(start=square_small.get_left() + LEFT*0.2, end=square_small.get_left() + LEFT*1.2, color=RED)
+        force_arrow_large = Arrow(start=square_large.get_left() + LEFT*0.2, end=square_large.get_left() + LEFT*1.2, color=RED)
+
+        # Motion arrows showing acceleration
+        accel_arrow_small = Arrow(start=square_small.get_right(), end=square_small.get_right() + RIGHT*3, color=YELLOW)
+        accel_arrow_large = Arrow(start=square_large.get_right(), end=square_large.get_right() + RIGHT*1.5, color=YELLOW)
+
+        # Labels for arrows
+        force_label_small = MathTex(r"\text{Force} = F").next_to(force_arrow_small, UP)
+        force_label_large = MathTex(r"\text{Force} = F").next_to(force_arrow_large, UP)
+        accel_label_small = MathTex(r"a_1").next_to(accel_arrow_small, UP)
+        accel_label_large = MathTex(r"a_2").next_to(accel_arrow_large, UP)
+
+        self.play(Create(square_small), Write(label_small))
+        self.play(Create(square_large), Write(label_large))
+        self.wait(1)
+        self.play(Create(force_arrow_small), Write(force_label_small))
+        self.play(Create(force_arrow_large), Write(force_label_large))
+        self.wait(1)
+        self.play(Create(accel_arrow_small), Write(accel_label_small))
+        self.play(Create(accel_arrow_large), Write(accel_label_large))
+        self.wait(2)
+
+class Scene4_ThirdLawLawofActionandReaction(Scene):
+    def construct(self):
+        # Two circles facing each other
+        objA = Circle(radius=0.7, color=BLUE).shift(LEFT*2)
+        labelA = Tex("Object A").next_to(objA, DOWN)
+        objB = Circle(radius=0.7, color=GREEN).shift(RIGHT*2)
+        labelB = Tex("Object B").next_to(objB, DOWN)
+
+        # Arrows between objects
+        arrow_AB = Arrow(start=objA.get_right(), end=objB.get_left(), color=RED)
+        arrow_BA = Arrow(start=objB.get_left(), end=objA.get_right(), color=RED)
+
+        # Labels for arrows
+        label_AB = Tex("Action Force").next_to(arrow_AB, UP)
+        label_BA = Tex("Reaction Force").next_to(arrow_BA, DOWN)
+
+        self.play(Create(objA), Write(labelA))
+        self.play(Create(objB), Write(labelB))
+        self.wait(1)
+        self.play(Create(arrow_AB), Write(label_AB))
+        self.play(Create(arrow_BA), Write(label_BA))
+        self.wait(2)
+
+class Scene5_SummaryofNewtonsLaws(Scene):
+    def construct(self):
+        # Bullet points text
+        bullet1 = Tex(r"\textbullet\ First Law: Object remains at rest or in uniform motion unless acted upon by a force.")
+        bullet2 = Tex(r"\textbullet\ Second Law: F = m \times a")
+        bullet3 = Tex(r"\textbullet\ Third Law: For every action, there is an equal and opposite reaction.")
+
+        bullet1.to_edge(UP).shift(LEFT*2 + UP*0.5)
+        bullet2.next_to(bullet1, DOWN, aligned_edge=LEFT).shift(LEFT*0.2)
+        bullet3.next_to(bullet2, DOWN, aligned_edge=LEFT).shift(LEFT*0.2)
+
+        # Icons
+        # First law icon: stationary and moving circle
+        circle_rest = Circle(radius=0.3, color=BLUE).next_to(bullet1, LEFT)
+        circle_motion = Circle(radius=0.3, color=GREEN).next_to(circle_rest, RIGHT, buff=0.3)
+        motion_arrow = Arrow(start=circle_motion.get_left(), end=circle_motion.get_right() + RIGHT*0.5, color=GREEN, buff=0)
+
+        # Second law icon: formula
+        formula_icon = MathTex(r"F=ma").scale(0.7).next_to(bullet2, LEFT)
+
+        # Third law icon: two opposing arrows
+        arrow1 = Arrow(start=ORIGIN, end=LEFT, color=RED).scale(0.7).next_to(bullet3, LEFT, buff=0.5)
+        arrow2 = Arrow(start=ORIGIN, end=RIGHT, color=RED).scale(0.7).next_to(arrow1, RIGHT, buff=0.1)
+
+        self.play(Write(bullet1))
+        self.play(Create(circle_rest), Create(circle_motion), Create(motion_arrow))
+        self.wait(1)
+        self.play(Write(bullet2))
+        self.play(Write(formula_icon))
+        self.wait(1)
+        self.play(Write(bullet3))
+        self.play(Create(arrow1), Create(arrow2))
         self.wait(3)
-
-class Scene2_Highlightpopulareducationalplatforms(Scene):
-    def construct(self):
-        # Since no images allowed, represent logos by Text
-        khan = Text("Khan Academy")
-        crash = Text("Crash Course")
-        threeblue = Text("3Blue1Brown")
-
-        khan.to_edge(LEFT)
-        crash.move_to(ORIGIN)
-        threeblue.to_edge(RIGHT)
-
-        # Bounce animation: scale up and down
-        def bounce(mob):
-            return (
-                mob.animate.scale(1.2).set_opacity(1).set_color(WHITE)
-                + mob.animate.scale(1/1.2).set_opacity(1).set_color(WHITE)
-            )
-
-        self.play(FadeIn(khan), run_time=0.5)
-        self.play(khan.animate.scale(1.2), run_time=0.3)
-        self.play(khan.animate.scale(1/1.2), run_time=0.3)
-        self.wait(0.5)
-
-        self.play(FadeIn(crash), run_time=0.5)
-        self.play(crash.animate.scale(1.2), run_time=0.3)
-        self.play(crash.animate.scale(1/1.2), run_time=0.3)
-        self.wait(0.5)
-
-        self.play(FadeIn(threeblue), run_time=0.5)
-        self.play(threeblue.animate.scale(1.2), run_time=0.3)
-        self.play(threeblue.animate.scale(1/1.2), run_time=0.3)
-        self.wait(2)
-
-class Scene3_YouTubeasasourceforlearning(Scene):
-    def construct(self):
-        # Represent logos from previous scene as Text
-        khan = Text("Khan Academy").to_edge(LEFT)
-        crash = Text("Crash Course").move_to(ORIGIN)
-        threeblue = Text("3Blue1Brown").to_edge(RIGHT)
-        self.add(khan, crash, threeblue)
-
-        # Create a large YouTube play button icon below logos
-        # Use a red rounded rectangle with a white triangle inside
-        rect = RoundedRectangle(corner_radius=0.3, height=2, width=3, fill_color=RED, fill_opacity=1, stroke_color=RED)
-        triangle = Polygon(
-            [-0.5, -0.7, 0],
-            [1, 0, 0],
-            [-0.5, 0.7, 0],
-            fill_color=WHITE,
-            fill_opacity=1,
-            stroke_color=WHITE
-        )
-        play_button = VGroup(rect, triangle)
-        play_button.next_to(khan, DOWN, buff=1.5).shift(UP*0.5)
-
-        self.play(FadeIn(play_button, run_time=2))
-
-        # Glowing outline pulsing gently
-        glow = rect.copy()
-        glow.set_stroke(color=YELLOW, width=8)
-        glow.set_fill(opacity=0)
-
-        self.add(glow)
-
-        def pulse(mob):
-            return (
-                mob.animate.set_stroke(width=12).set_opacity(0.7).set_color(YELLOW)
-                + mob.animate.set_stroke(width=8).set_opacity(0.4).set_color(YELLOW)
-            )
-
-        for _ in range(3):
-            self.play(glow.animate.set_stroke(width=12, opacity=0.7), run_time=1)
-            self.play(glow.animate.set_stroke(width=8, opacity=0.4), run_time=1)
-
-        self.wait(1)
-
-class Scene4_Videosprovideclearexplanations(Scene):
-    def construct(self):
-        # Stylized video player interface
-        frame = Rectangle(height=3, width=5, stroke_color=WHITE)
-        frame.set_fill(BLACK, opacity=0.8)
-
-        # Play button in center
-        play_triangle = Polygon(
-            [-0.3, -0.5, 0],
-            [0.6, 0, 0],
-            [-0.3, 0.5, 0],
-            fill_color=WHITE,
-            fill_opacity=0.8,
-            stroke_color=WHITE
-        )
-
-        play_button = VGroup(play_triangle)
-        play_button.move_to(frame.get_center())
-
-        # Progress bar below frame
-        bar_back = Rectangle(height=0.15, width=4.5, fill_color=GRAY, fill_opacity=0.5, stroke_color=WHITE)
-        bar_front = Rectangle(height=0.15, width=0.1, fill_color=RED, fill_opacity=0.8, stroke_color=RED)
-
-        progress_bar = VGroup(bar_back, bar_front)
-        progress_bar.next_to(frame, DOWN, buff=0.3)
-        progress_bar.align_to(frame, LEFT)
-
-        # Quadratic graph inside frame
-        axes = Axes(
-            x_range=[-3, 3, 1],
-            y_range=[-1, 5, 1],
-            x_length=4.5,
-            y_length=2.5,
-            axis_config={"include_tip": False}
-        )
-        axes.move_to(frame.get_center())
-
-        graph = axes.plot(lambda x: x**2 / 2, x_range=[-2.5, 2.5], color=YELLOW)
-
-        self.play(Create(frame), run_time=1.5)
-        self.play(FadeIn(play_button), run_time=1)
-        self.play(Create(bar_back), run_time=0.5)
-        self.play(Create(bar_front), run_time=0.5)
-
-        self.wait(0.5)
-
-        # Draw quadratic graph dynamically
-        self.play(Create(axes), run_time=1)
-        self.play(Create(graph), run_time=3)
-
-        self.wait(2)
-
-class Scene5_Exampleshelpunderstanding(Scene):
-    def construct(self):
-        # Blackboard style background
-        blackboard = Rectangle(width=7, height=4, fill_color=BLACK, fill_opacity=1, stroke_color=WHITE)
-        self.add(blackboard)
-
-        steps = [
-            MathTex(r"ax^2 + bx + c = 0"),
-            MathTex(r"ax^2 + bx = -c"),
-            MathTex(r"x^2 + \frac{b}{a}x = -\frac{c}{a}"),
-            MathTex(r"x^2 + \frac{b}{a}x + \left(\frac{b}{2a}\right)^2 = -\frac{c}{a} + \left(\frac{b}{2a}\right)^2"),
-            MathTex(r"\left(x + \frac{b}{2a}\right)^2 = \frac{b^2 - 4ac}{4a^2}"),
-            MathTex(r"x + \frac{b}{2a} = \pm \frac{\sqrt{b^2 - 4ac}}{2a}"),
-            MathTex(r"x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}")
-        ]
-
-        for i, step in enumerate(steps):
-            step.to_edge(UP).shift(DOWN * i * 0.5)
-
-        rect = SurroundingRectangle(steps[0], color=YELLOW)
-
-        self.play(Write(steps[0]), run_time=2)
-        self.play(Create(rect), run_time=1)
-        self.wait(1)
-
-        for i in range(1, len(steps)):
-            new_rect = SurroundingRectangle(steps[i], color=YELLOW)
-            self.play(Transform(rect, new_rect), Transform(steps[i-1], steps[i]), run_time=2)
-            self.wait(1)
-
-        self.wait(2)

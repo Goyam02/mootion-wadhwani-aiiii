@@ -20,7 +20,7 @@ async def explain(request: ExplainRequest):
 
     try:
         response = requests.post(
-            "http://127.0.0.1:8001/explain",
+            "http://manim-engine:8001/explain",
             json=request_data,
             timeout=300,
         )
