@@ -55,9 +55,32 @@ class CurriculumUpdateRequest(BaseModel):
     status: str | None = Field(default=None, pattern="^(draft|active|archived)$")
 
 
+class CurriculumPatchRequest(BaseModel):
+    operation: str = Field(pattern="^(add_node|update_node|delete_node|move_node)$")
+    expected_version: int = Field(ge=1)
+    target_node_id: str | None = None
+    parent_node_id: str | None = None
+    position: int | None = Field(default=None, ge=0)
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+
+class CurriculumPatchResponse(BaseModel):
+    curriculum_id: str
+    class_id: str
+    version: int
+    title: str
+    source_type: str
+    source_text: str | None
+    source_subject: str | None
+    document_id: str | None
+    curriculum_data: CurriculumRoadmapData
+    status: str
+
+
 class CurriculumResponse(BaseModel):
     curriculum_id: str
     class_id: str
+    version: int
     title: str
     source_type: str
     source_text: str | None
@@ -70,6 +93,7 @@ class CurriculumResponse(BaseModel):
 class CurriculumListItem(BaseModel):
     curriculum_id: str
     class_id: str
+    version: int
     title: str
     source_type: str
     status: str

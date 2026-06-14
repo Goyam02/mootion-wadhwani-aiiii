@@ -23,6 +23,12 @@ class Settings:
         "http://localhost:8000/auth/google/callback",
     )
     frontend_url: str = os.getenv("FRONTEND_URL", "http://localhost:3000")
+    manim_service_url: str = os.getenv("MANIM_SERVICE_URL", "http://manim-engine:8001/explain")
+    sketchfab_api_url: str | None = os.getenv("SKETCHFAB_API_URL")
+    azure_openai_endpoint: str | None = os.getenv("AZURE_OPENAI_ENDPOINT")
+    azure_openai_api_key: str | None = os.getenv("AZURE_OPENAI_API_KEY")
+    azure_openai_deployment: str = os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-5.4-mini")
+    asset_generation_poll_interval_seconds: float = float(os.getenv("ASSET_GENERATION_POLL_INTERVAL_SECONDS", "1.0"))
 
 
 settings = Settings()

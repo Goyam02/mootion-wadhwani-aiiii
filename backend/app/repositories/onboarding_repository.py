@@ -122,3 +122,8 @@ def get_student_classes(db: Session, student_id: str) -> list[ClassRoom]:
         .order_by(ClassRoom.created_at.desc())
     )
     return list(db.scalars(statement).all())
+
+
+def get_student_ids_for_class(db: Session, class_id: str) -> list[str]:
+    statement = select(StudentClassMembership.student_id).where(StudentClassMembership.class_id == class_id)
+    return [str(student_id) for student_id in db.scalars(statement).all()]

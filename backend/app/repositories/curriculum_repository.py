@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.models import CurriculumPlan
+from app.core.models import CurriculumSnapshot
 
 
 def create_curriculum_plan(db: Session, curriculum: CurriculumPlan) -> CurriculumPlan:
@@ -11,6 +12,13 @@ def create_curriculum_plan(db: Session, curriculum: CurriculumPlan) -> Curriculu
     db.commit()
     db.refresh(curriculum)
     return curriculum
+
+
+def create_curriculum_snapshot(db: Session, snapshot: CurriculumSnapshot) -> CurriculumSnapshot:
+    db.add(snapshot)
+    db.commit()
+    db.refresh(snapshot)
+    return snapshot
 
 
 def get_curriculum_plan(db: Session, curriculum_id: str) -> CurriculumPlan | None:
@@ -26,3 +34,8 @@ def update_curriculum_plan(db: Session, curriculum: CurriculumPlan) -> Curriculu
     db.commit()
     db.refresh(curriculum)
     return curriculum
+
+
+def list_curriculum_snapshots_for_curriculum(db: Session, curriculum_id: str) -> list[CurriculumSnapshot]:
+    statement = select(CurriculumSnapshot).where(CurriculumSnapshot.curriculum_id == curriculum_id).order_by(CurriculumSnapshot.version.desc())
+    return list(db.scalars(statement).all())
