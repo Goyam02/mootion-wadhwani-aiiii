@@ -18,6 +18,10 @@ class Settings:
     jwt_access_token_ttl_minutes: int = int(os.getenv("JWT_ACCESS_TOKEN_TTL_MINUTES", "60"))
     google_oauth_client_id: str | None = os.getenv("GOOGLE_OAUTH_CLIENT_ID")
     google_oauth_client_secret: str | None = os.getenv("GOOGLE_OAUTH_CLIENT_SECRET")
+    google_oauth_redirect_uri: str = os.getenv(
+        "GOOGLE_OAUTH_REDIRECT_URI",
+        "http://localhost:8000/auth/google/callback",
+    )
     frontend_url: str = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
 
