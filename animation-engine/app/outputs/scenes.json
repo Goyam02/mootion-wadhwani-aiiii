@@ -1,30 +1,10 @@
 {
-  "category": "maths",
+  "category": "physics",
   "scenes": [
     {
       "scene_id": 1,
-      "concept": "Introduction to quadratic equations",
-      "visual": "Display the quadratic equation formula ax^2 + bx + c = 0 centered on screen with a smooth fade-in animation."
-    },
-    {
-      "scene_id": 2,
-      "concept": "Highlight popular educational platforms",
-      "visual": "Show three logos side by side: Khan Academy, Crash Course, and 3Blue1Brown, each appearing with a bounce animation."
-    },
-    {
-      "scene_id": 3,
-      "concept": "YouTube as a source for learning",
-      "visual": "Animate a large YouTube play button icon appearing below the logos, with a glowing outline pulsing gently."
-    },
-    {
-      "scene_id": 4,
-      "concept": "Videos provide clear explanations",
-      "visual": "Show a stylized video player interface with a play button, progress bar, and a sample video frame illustrating a quadratic graph being drawn dynamically."
-    },
-    {
-      "scene_id": 5,
-      "concept": "Examples help understanding",
-      "visual": "Animate a step-by-step solution of a quadratic equation on a blackboard style background, with each step appearing sequentially and highlighted with a rectangle."
+      "concept": "Force and energy as the topic title",
+      "visual": "Display the centered title text 'Force and Energy' with a smaller subtitle 'Class 9' beneath it. Add a simple icon-like arrangement of a right-pointing arrow labeled 'Force' and a glowing circle labeled 'Energy' beside the title, then gently fade in the full title card."
     }
   ]
 }

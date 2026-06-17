@@ -11,6 +11,7 @@ This folder documents the current backend design and implementation state.
 - `CURRICULUM_MANUAL_FLOW.md` - manual curriculum creation and NCERT bootstrap flow
 - `CHAPTERS.md` - chapter bootstrap, placeholder assets, and why chapters exist
 - `ASSIGNMENTS.md` - assignment-driven generation flow and queue behavior
+- `MEDIA_AND_WORKERS.md` - Redis job queue, MinIO storage, and worker runtime
 - `API_REFERENCE.md` - endpoint catalog and practical usage map
 
 ## Reading Order
@@ -24,4 +25,5 @@ If you are new to the backend, read in this order:
 5. `CURRICULUM_PATCHING.md`
 6. `CHAPTERS.md`
 7. `ASSIGNMENTS.md`
-8. `API_REFERENCE.md`
+8. `MEDIA_AND_WORKERS.md`
+9. `API_REFERENCE.md`

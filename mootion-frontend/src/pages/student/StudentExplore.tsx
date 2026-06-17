@@ -187,29 +187,13 @@ export const StudentExplore: React.FC = () => {
 
             {/* List of past attempts */}
             <div className="flex flex-col gap-3">
-              {[
-                { id: '1', date: 'June 14, 2026', type: 'Explain It', u: 3, r: 2, e: 3, transcript: 'Explained current drift velocity correctly.' },
-                { id: '2', date: 'June 10, 2026', type: 'Predict It', u: 2, r: 1, e: 2, transcript: 'Incorrectly predicted resistor brightness decreases.' },
-              ].map(att => (
-                <div 
-                  key={att.id}
-                  className="bg-slate-950 p-3.5 rounded-xl border border-slate-900 flex flex-col gap-2.5 text-xs text-left"
-                >
-                  <div className="flex justify-between items-center">
-                    <span className="font-bold text-slate-350">{att.type}</span>
-                    <span className="text-[10px] text-slate-550 font-bold">{att.date}</span>
-                  </div>
-
-                  <div className="flex gap-4 text-[10px] font-bold text-slate-500">
-                    <span>Underst. <span className="text-violet-400">{att.u}/3</span></span>
-                    <span>Reason. <span className="text-cyan-400">{att.r}/3</span></span>
-                  </div>
-
-                  <p className="text-[11px] text-slate-400 italic">
-                    "{att.transcript}"
-                  </p>
-                </div>
-              ))}
+              <div className="glass-panel p-6 flex flex-col items-center justify-center text-center border-amber-500/20 bg-amber-500/5 mt-2">
+                <Clock size={24} className="text-amber-500 mb-1" />
+                <h4 className="font-bold text-slate-200 text-xs">No backend endpoint available</h4>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Student-accessible exercise attempt history is not supported by the backend services.
+                </p>
+              </div>
             </div>
           </div>
         </div>

@@ -1,22 +1,6 @@
 [
   {
     "scene_id": 1,
-    "script": "Let's begin by looking at the quadratic equation, which is written as ax squared plus bx plus c equals zero. This formula is fundamental in algebra and helps us find the values of x that satisfy the equation."
-  },
-  {
-    "scene_id": 2,
-    "script": "There are many great educational platforms to help you learn math, including Khan Academy, Crash Course, and 3Blue1Brown. Each offers unique ways to understand complex concepts clearly and effectively."
-  },
-  {
-    "scene_id": 3,
-    "script": "YouTube is an excellent resource for learning, providing access to countless educational videos that explain topics in an engaging and visual way."
-  },
-  {
-    "scene_id": 4,
-    "script": "Videos often include clear explanations and dynamic illustrations, like graphs being drawn step-by-step, which make understanding quadratic equations much easier."
-  },
-  {
-    "scene_id": 5,
-    "script": "Working through examples step-by-step is a powerful way to grasp quadratic equations. Seeing each part of the solution highlighted helps you follow the process and learn effectively."
+    "script": "Welcome to Force and Energy."
   }
 ]

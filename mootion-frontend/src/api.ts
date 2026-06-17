@@ -125,15 +125,7 @@ export const api = {
       headers: getHeaders()
     });
     if (!res.ok) throw new Error('Failed to load classes');
-    const classes = await res.json();
-    
-    // Add student count & chapters count mocks for display since SQL schema only stores base class info
-    return classes.map((c: any) => ({
-      ...c,
-      chapters_count: c.chapters_count || 12,
-      students_count: c.students_count || 24,
-      last_activity_date: c.last_activity_date || new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-    }));
+    return res.json();
   },
 
   // --- CURRICULUM & CHAPTERS ---
@@ -195,13 +187,10 @@ export const api = {
       headers: getHeaders(),
       body: JSON.stringify(payload)
     });
-    if (!res.ok) throw new Error('Failed to create assignment');
-    
-    // Auto mark chapter as generated/active in mock db if success
-    const currentChapters = getMockChapters(classId);
-    const updated = currentChapters.map((c: any) => c.chapter_id === payload.chapter_id ? { ...c, status: 'active' } : c);
-    saveMockChapters(classId, updated);
-
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'Failed to create assignment');
+    }
     return res.json();
   },
 
@@ -250,31 +239,23 @@ export const api = {
   },
 
   async getStudentAssignments(classId: string): Promise<StudentTask[]> {
-    // Attempt backend fetch
-    try {
-      const res = await fetch(`${API_BASE}/students/classes/${classId}/assignments`, {
-        headers: getHeaders()
-      });
-      if (res.ok) {
-        const data = await res.json();
-        // Convert to UI structure
-        return data.map((t: any) => ({
-          assignment_id: t.assignment_id,
-          class_id: t.class_id,
-          chapter_id: t.chapter_id,
-          chapter_title: t.title || 'Chapter Topic',
-          assignment_type: t.assignment_type,
-          title: t.title,
-          instructions: t.instructions,
-          status: getMockTaskStatus(t.assignment_id),
-          deadline: new Date(Date.now() + 86400000 * 2).toLocaleDateString(),
-          attempts: getMockAttempts(t.assignment_id)
-        }));
-      }
-    } catch (e) {
-      console.warn('Backend tasks fetch failed, falling back to mock');
-    }
-    return getFallbackTasks(classId);
+    const res = await fetch(`${API_BASE}/students/classes/${classId}/assignments`, {
+      headers: getHeaders()
+    });
+    if (!res.ok) throw new Error('Failed to fetch student tasks');
+    const data = await res.json();
+    return data.map((t: any) => ({
+      assignment_id: t.assignment_id,
+      class_id: t.class_id,
+      chapter_id: t.chapter_id,
+      chapter_title: t.title || 'Chapter Topic',
+      assignment_type: t.assignment_type,
+      title: t.title,
+      instructions: t.instructions,
+      status: getMockTaskStatus(t.assignment_id),
+      deadline: new Date(Date.now() + 86400000 * 2).toLocaleDateString(),
+      attempts: getMockAttempts(t.assignment_id)
+    }));
   },
 
   // --- MOCK OR EXTENDED FEATURES (LOCAL STORAGE & BACKEND) ---
@@ -313,36 +294,33 @@ export const api = {
 
   // Doubt Flow
   async getDoubts(): Promise<DoubtEntry[]> {
-    try {
-      let classId = localStorage.getItem('active_class_id');
-      if (!classId) {
-        const classes = await this.getTeacherClasses();
-        if (classes.length > 0) classId = classes[0].class_id;
+    let classId = localStorage.getItem('active_class_id');
+    if (!classId) {
+      const classes = await this.getTeacherClasses();
+      if (classes.length > 0) {
+        classId = classes[0].class_id;
       }
-      if (classId) {
-        const res = await fetch(`${API_BASE}/teachers/classes/${classId}/doubts`, {
-          headers: getHeaders()
-        });
-        if (res.ok) {
-          const list = await res.json();
-          return list.map((d: any) => ({
-            doubt_id: d.doubt_id,
-            student_id: d.student_id,
-            student_name: d.student_name,
-            topic: d.topic,
-            text: d.query_text,
-            video_url: d.clarification_video_url,
-            status: d.status,
-            created_at: d.created_at,
-            response_text: d.response_text || undefined,
-            response_audio_url: d.response_audio_url || undefined
-          }));
-        }
-      }
-    } catch (e) {
-      console.warn('Backend getDoubts failed, using mock', e);
     }
-    return this.getDoubtsLocal();
+    if (!classId) {
+      return [];
+    }
+    const res = await fetch(`${API_BASE}/teachers/classes/${classId}/doubts`, {
+      headers: getHeaders()
+    });
+    if (!res.ok) throw new Error('Failed to fetch doubts');
+    const list = await res.json();
+    return list.map((d: any) => ({
+      doubt_id: d.doubt_id,
+      student_id: d.student_id,
+      student_name: d.student_name,
+      topic: d.topic,
+      text: d.query_text,
+      video_url: d.clarification_video_url,
+      status: d.status,
+      created_at: d.created_at,
+      response_text: d.response_text || undefined,
+      response_audio_url: d.response_audio_url || undefined
+    }));
   },
 
   async saveDoubt(doubt: any): Promise<any> {
@@ -445,104 +423,37 @@ export const api = {
 
   // Analytics - Class Overview
   async getClassAnalytics(classId: string): Promise<ClassAnalytics> {
-    try {
-      const res = await fetch(`${API_BASE}/teachers/classes/${classId}/analytics/overview`, {
-        headers: getHeaders()
-      });
-      if (res.ok) {
-        return res.json();
-      }
-    } catch (e) {
-      console.warn('Backend getClassAnalytics failed, using local mock', e);
-    }
-    return {
-      class_id: classId,
-      average_scores: { understanding: 2.1, reasoning: 1.8, expression: 2.4 },
-      task_completion_rate: 75,
-      most_common_misconception: 'Students believe that heavier objects fall faster in a vacuum.',
-      misconception_count: 6,
-      recent_activities: [
-        { student_id: 's1', student_name: 'Rahul Kumar', chapter_title: 'Electric Current', activity_type: 'explain_it', score: 3, date: 'Today, 10:24 AM' },
-        { student_id: 's2', student_name: 'Priya Patel', chapter_title: 'Electric Current', activity_type: 'explain_it', score: 2, date: 'Today, 9:15 AM' },
-        { student_id: 's3', student_name: 'Aarav Shah', chapter_title: 'Electric Current', activity_type: 'predict_it', score: 1, date: 'Yesterday' },
-        { student_id: 's4', student_name: 'Diya Sharma', chapter_title: 'Electric Current', activity_type: 'spot_it', score: 3, date: 'Yesterday' }
-      ]
-    };
+    const res = await fetch(`${API_BASE}/teachers/classes/${classId}/analytics/overview`, {
+      headers: getHeaders()
+    });
+    if (!res.ok) throw new Error('Failed to fetch class analytics');
+    return res.json();
   },
 
   // Analytics - Chapter Drill
   async getChapterAnalytics(chapterId: string, chapterTitle: string): Promise<ChapterAnalytics> {
-    try {
-      let classId = localStorage.getItem('active_class_id');
-      if (!classId) {
-        const classes = await this.getTeacherClasses();
-        if (classes.length > 0) classId = classes[0].class_id;
-      }
-      if (classId) {
-        const res = await fetch(`${API_BASE}/teachers/classes/${classId}/chapters/${chapterId}/analytics`, {
-          headers: getHeaders()
-        });
-        if (res.ok) {
-          return res.json();
-        }
-      }
-    } catch (e) {
-      console.warn('Backend getChapterAnalytics failed, using local mock', e);
+    let classId = localStorage.getItem('active_class_id');
+    if (!classId) {
+      const classes = await this.getTeacherClasses();
+      if (classes.length > 0) classId = classes[0].class_id;
     }
-    return {
-      chapter_id: chapterId,
-      chapter_title: chapterTitle,
-      scores_distribution: {
-        understanding: { 0: 2, 1: 5, 2: 12, 3: 5 },
-        reasoning: { 0: 3, 1: 8, 2: 10, 3: 3 },
-        expression: { 0: 1, 1: 4, 2: 11, 3: 8 }
-      },
-      top_misconceptions: [
-        { text: 'Electricity travels through wire like water in a pipe, with empty wires before switch is on.', percentage: 42 },
-        { text: 'A batteries holds a constant electrical charge that is released at a single speed.', percentage: 25 },
-        { text: 'A single wire connected from battery to bulb is enough to make a complete circuit.', percentage: 15 }
-      ],
-      student_scores: [
-        { student_id: 's1', student_name: 'Rahul Kumar', understanding: 3, reasoning: 2, expression: 3, last_active: '10:24 AM' },
-        { student_id: 's2', student_name: 'Priya Patel', understanding: 2, reasoning: 3, expression: 2, last_active: '9:15 AM' },
-        { student_id: 's3', student_name: 'Aarav Shah', understanding: 1, reasoning: 1, expression: 2, last_active: 'Yesterday' },
-        { student_id: 's4', student_name: 'Diya Sharma', understanding: 3, reasoning: 2, expression: 3, last_active: 'Yesterday' }
-      ]
-    };
+    if (!classId) {
+      throw new Error('No active class selected');
+    }
+    const res = await fetch(`${API_BASE}/teachers/classes/${classId}/chapters/${chapterId}/analytics`, {
+      headers: getHeaders()
+    });
+    if (!res.ok) throw new Error('Failed to fetch chapter analytics');
+    return res.json();
   },
 
   // Analytics - Student Detail
   async getStudentAnalytics(studentId: string, studentName: string): Promise<StudentAnalytics> {
-    try {
-      const res = await fetch(`${API_BASE}/teachers/students/${studentId}/analytics`, {
-        headers: getHeaders()
-      });
-      if (res.ok) {
-        return res.json();
-      }
-    } catch (e) {
-      console.warn('Backend getStudentAnalytics failed, using local mock', e);
-    }
-    return {
-      student_id: studentId,
-      student_name: studentName,
-      streak: 7,
-      score_timeline: [
-        { chapter_title: 'Electric Current', understanding: 3, reasoning: 2, expression: 3 },
-        { chapter_title: 'Ohm\'s Law', understanding: 2, reasoning: 3, expression: 2 },
-        { chapter_title: 'Electric Circuits', understanding: 3, reasoning: 2, expression: 2 }
-      ],
-      misconceptions_history: [
-        { text: 'Heavier objects fall faster in a vacuum', status: 'corrected', resolved_chapter: 'Gravitation' },
-        { text: 'Current flows from positive to negative terminal because protons move', status: 'unresolved' }
-      ],
-      prediction_accuracy: 80,
-      language_ratio: { hindi: 0.6, english: 0.4, gujarati: 0 },
-      explain_excerpts: [
-        { text: '"...electrons drift slowly but the field travels at speed of light..."', is_strong: true, concept: 'Current' },
-        { text: '"...resistor blocks the current flow completely..."', is_strong: false, concept: 'Resistance' }
-      ]
-    };
+    const res = await fetch(`${API_BASE}/teachers/students/${studentId}/analytics`, {
+      headers: getHeaders()
+    });
+    if (!res.ok) throw new Error('Failed to fetch student analytics');
+    return res.json();
   },
 
   // Student Submissions / Activities Grader Call

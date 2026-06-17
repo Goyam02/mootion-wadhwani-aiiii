@@ -19,6 +19,7 @@ The detailed behavior is documented in the domain docs:
 - `CURRICULUM_PATCHING.md`
 - `CHAPTERS.md`
 - `ASSIGNMENTS.md`
+- `MEDIA_AND_WORKERS.md`
 
 ## General Request Conventions
 
@@ -172,6 +173,22 @@ List assignments visible to a student for one class.
 
 Fetch one student-visible assignment for a class.
 
+## Media
+
+### `GET /media/assets/{asset_id}`
+
+Stream a generated media asset from MinIO through the backend.
+
+Use it when a chapter asset has been generated and you need a stable browser-playable URL.
+
+## Worker Runtime
+
+### `python -m app.services.media_worker`
+
+Starts a Redis-backed worker loop that processes queued media jobs.
+
+Run multiple copies of this process to scale out generation throughput.
+
 ## Practical Flow
 
 1. Authenticate.
@@ -180,4 +197,5 @@ Fetch one student-visible assignment for a class.
 4. Teacher bootstraps chapters from the curriculum.
 5. Teacher creates a class-wide assignment for one chapter and one activity type.
 6. The backend queues generation jobs.
-7. The frontend polls assignment and chapter detail to show the result.
+7. A worker generates media, uploads it to MinIO, and writes back the result.
+8. The frontend polls assignment and chapter detail to show the result.

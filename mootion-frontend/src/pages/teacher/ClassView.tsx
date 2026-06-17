@@ -1,13 +1,128 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, Sparkles, RefreshCw, 
-  Map, BarChart3, Users, HelpCircle, AlertCircle, CheckCircle2, Clock, Calendar, X 
+  Map, BarChart3, Users, HelpCircle, AlertCircle, CheckCircle2, Clock, Calendar, X,
+  ListChecks, Plus
 } from 'lucide-react';
-import { ReactFlow, Background, Controls, Node, Edge } from '@xyflow/react';
+import { ReactFlow, Background, Controls, Handle, Position, Node, Edge } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { api } from '../../api';
-import { ChapterInfo, ClassInfo, ClassAnalytics, DoubtEntry } from '../../types';
+import { ChapterInfo, ClassInfo, ClassAnalytics, DoubtEntry, AssignmentInfo } from '../../types';
+
+// Activity types accepted by the backend ALLOWED_ASSIGNMENT_TYPES
+const ACTIVITY_OPTIONS = [
+  { id: 'explain_ai',  label: 'Explain It (Teach the AI)' },
+  { id: 'predict_ai',  label: 'Predict It (POE)' },
+  { id: 'quiz',        label: 'Quiz (MCQ)' },
+  { id: 'spot_it',     label: 'Spot the Mistake' },
+  { id: 'connect_it',  label: 'Connect It (Concept Map)' },
+  { id: 'video',       label: 'Concept Video' },
+];
+
+// --- Status helpers (module-level so custom nodes can use them) ---
+const STATUS_COLORS: Record<string, string> = {
+  unset: '#64748b',
+  generated: '#f59e0b',
+  active: '#10b981',
+  data_ready: '#06b6d4',
+};
+const getStatusColor = (s: string) => STATUS_COLORS[s] ?? '#64748b';
+const STATUS_LABELS: Record<string, string> = {
+  unset: 'Unassigned',
+  generated: 'Assigned',
+  active: 'Active',
+  data_ready: 'Live',
+};
+const getStatusLabel = (s: string) => STATUS_LABELS[s] ?? 'Unassigned';
+
+// --- Custom React Flow node: root subject node ---
+const RootNode = ({ data }: { data: any }) => (
+  <div style={{ background: 'rgba(139,92,246,0.12)', border: '2px solid #8b5cf6', borderRadius: 12, color: '#fff', width: 200, padding: '10px 14px', boxShadow: '0 0 18px rgba(139,92,246,0.25)', textAlign: 'center' }}>
+    <Handle type="source" position={Position.Bottom} style={{ background: '#8b5cf6', border: 'none' }} />
+    <div style={{ fontSize: 9, fontWeight: 700, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Primary Topic</div>
+    <div style={{ fontSize: 14, fontWeight: 800, marginTop: 3 }}>{data.subject} Overview</div>
+  </div>
+);
+
+// --- Custom React Flow node: chapter/unit node ---
+const ChapterNode = ({ data }: { data: any }) => {
+  const color = getStatusColor(data.status ?? 'unset');
+  const label = getStatusLabel(data.status ?? 'unset');
+  const isUnset = !data.status || data.status === 'unset';
+  return (
+    <div
+      style={{
+        background: 'rgba(15,23,42,0.95)',
+        border: `2px solid ${color}`,
+        borderRadius: 12,
+        color: '#fff',
+        width: 190,
+        padding: '10px 12px 10px',
+        boxShadow: isUnset ? 'none' : `0 0 14px ${color}30`,
+        cursor: 'pointer',
+      }}
+    >
+      <Handle type="target" position={Position.Top} style={{ background: color, border: 'none' }} />
+      <Handle type="source" position={Position.Bottom} style={{ background: color, border: 'none' }} />
+
+      {/* Header row */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+        <span style={{ fontSize: 9, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+          {data.index != null ? `Ch. ${data.index + 1}` : 'Chapter'}
+        </span>
+        <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, display: 'inline-block' }} />
+      </div>
+
+      {/* Title */}
+      <div style={{ fontSize: 12, fontWeight: 700, color: '#e2e8f0', marginBottom: 4, lineHeight: 1.3, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {data.title}
+      </div>
+
+      {/* Status label */}
+      <div style={{ fontSize: 9, fontWeight: 700, color, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
+        {label}
+      </div>
+
+      {/* Divider */}
+      <div style={{ borderTop: '1px solid #1e293b', marginBottom: 8 }} />
+
+      {/* Assign button — plain React onClick, always works */}
+      <button
+        onClick={(e) => { e.stopPropagation(); data.onAssign?.(); }}
+        style={{
+          width: '100%',
+          padding: '5px 0',
+          borderRadius: 7,
+          border: isUnset ? '1px solid rgba(139,92,246,0.4)' : '1px solid rgba(16,185,129,0.3)',
+          background: isUnset ? 'rgba(139,92,246,0.12)' : 'rgba(16,185,129,0.08)',
+          color: isUnset ? '#a78bfa' : '#34d399',
+          fontSize: 10,
+          fontWeight: 700,
+          cursor: 'pointer',
+          letterSpacing: '0.05em',
+          textTransform: 'uppercase',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 4,
+        }}
+      >
+        <span style={{ fontSize: 12 }}>{isUnset ? '+' : '✓'}</span>
+        {isUnset ? 'Assign Activities' : 'Re-assign'}
+      </button>
+    </div>
+  );
+};
+
+// --- Custom React Flow node: sub-concept node ---
+const ConceptNode = ({ data }: { data: any }) => (
+  <div style={{ background: 'rgba(15,23,42,0.5)', border: `1px dashed ${data.color ?? '#334155'}`, borderRadius: 8, color: '#fff', width: 160, padding: '7px 10px' }}>
+    <Handle type="target" position={Position.Top} style={{ background: data.color ?? '#334155', border: 'none', width: 6, height: 6 }} />
+    <div style={{ fontSize: 7, fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>Concept</div>
+    <div style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', marginTop: 2, lineHeight: 1.3 }}>{data.title}</div>
+  </div>
+);
 
 export const ClassView: React.FC = () => {
   const { classId } = useParams<{ classId: string }>();
@@ -22,17 +137,19 @@ export const ClassView: React.FC = () => {
   const [classInfo, setClassInfo] = useState<ClassInfo | null>(null);
   const [classAnalytics, setClassAnalytics] = useState<ClassAnalytics | null>(null);
   const [doubts, setDoubts] = useState<DoubtEntry[]>([]);
+  const [assignments, setAssignments] = useState<AssignmentInfo[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Modal / Assignment states
   const [selectedChapter, setSelectedChapter] = useState<ChapterInfo | null>(null);
   const [assignOpen, setAssignOpen] = useState(false);
-  const [selectedActivities, setSelectedActivities] = useState<string[]>(['explain_it', 'predict_it', 'quiz']);
+  const [selectedActivities, setSelectedActivities] = useState<string[]>(['explain_ai', 'predict_ai', 'quiz']);
   const [deadline, setDeadline] = useState(() =>
     new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0]
   );
   const [instructionsNote, setInstructionsNote] = useState('');
   const [submittingAssignment, setSubmittingAssignment] = useState(false);
+  const [assignSuccess, setAssignSuccess] = useState(false);
   const [bootstrapping, setBootstrapping] = useState(false);
 
   useEffect(() => {
@@ -44,6 +161,7 @@ export const ClassView: React.FC = () => {
         const found = classes.find(c => c.class_id === classId);
         if (found) {
           setClassInfo(found);
+          localStorage.setItem('active_class_id', classId!);
         }
 
         const chs = await api.getChapters(classId!);
@@ -62,12 +180,16 @@ export const ClassView: React.FC = () => {
           console.warn('Failed to load curriculum details', currErr);
         }
 
-        // Pre-fetch Analytics & Doubts for Dashboard
-        const analyticsData = await api.getClassAnalytics(classId!);
-        setClassAnalytics(analyticsData);
+        // Pre-fetch Analytics, Doubts & Assignments for Dashboard
+        const [analyticsData, doubtList, assignList] = await Promise.allSettled([
+          api.getClassAnalytics(classId!),
+          api.getDoubts(),
+          api.getAssignments(classId!),
+        ]);
 
-        const doubtList = await api.getDoubts();
-        setDoubts(doubtList.filter(d => d.status === 'pending').slice(0, 3));
+        if (analyticsData.status === 'fulfilled') setClassAnalytics(analyticsData.value);
+        if (doubtList.status === 'fulfilled') setDoubts(doubtList.value.filter(d => d.status === 'pending').slice(0, 3));
+        if (assignList.status === 'fulfilled') setAssignments(assignList.value as any);
       } catch (e) {
         console.error('Failed to load class view data', e);
       } finally {
@@ -107,310 +229,144 @@ export const ClassView: React.FC = () => {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'unset': return '#64748b'; // Slate/Grey
-      case 'generated': return '#f59e0b'; // Amber/Orange
-      case 'active': return '#10b981'; // Emerald/Green
-      case 'data_ready': return '#06b6d4'; // Cyan
-      default: return '#64748b';
-    }
-  };
+  // Stable nodeTypes — must be defined with useMemo to prevent React Flow re-mounting nodes
+  const nodeTypes = useMemo(() => ({
+    rootNode: RootNode,
+    chapterNode: ChapterNode,
+    conceptNode: ConceptNode,
+  }), []);
 
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'unset': return 'Unassigned';
-      case 'generated': return 'Assigned Topic';
-      case 'active': return 'Completed by Class';
-      case 'data_ready': return 'Live';
-      default: return 'Unassigned';
-    }
-  };
-
-  // Convert chapters and curriculum tree to React Flow nodes and edges (Hierarchical layout)
+  // Build React Flow nodes and edges using custom node types
   const flowNodes: Node[] = [];
   const flowEdges: Edge[] = [];
 
   if (classInfo) {
     if (curriculum && curriculum.curriculum_data && curriculum.curriculum_data.root) {
+      // ---- Curriculum tree layout ----
       const rootNode = curriculum.curriculum_data.root;
-      const units = rootNode.children || [];
-      const totalUnits = units.length;
-      
-      // Center the root node relative to all columns
+      const units: any[] = rootNode.children || [];
       const columnSpacing = 280;
-      const totalWidth = (totalUnits - 1) * columnSpacing;
+      const totalWidth = (units.length - 1) * columnSpacing;
       const rootX = totalWidth / 2 + 100;
-      const rootY = 20;
 
       flowNodes.push({
         id: 'root-class',
-        type: 'default',
-        data: { 
-          label: (
-            <div className="text-center font-bold font-heading p-1">
-              <span className="text-[9px] uppercase tracking-widest text-violet-400 font-bold">Primary Topic</span>
-              <div className="text-sm text-white mt-0.5 font-extrabold">{classInfo.subject} Overview</div>
-            </div>
-          )
-        },
-        position: { x: rootX, y: rootY },
-        style: {
-          background: 'rgba(139, 92, 246, 0.12)',
-          border: '2px solid #8b5cf6',
-          borderRadius: '12px',
-          color: '#fff',
-          width: 200,
-          boxShadow: '0 0 15px rgba(139, 92, 246, 0.2)',
-        }
+        type: 'rootNode',
+        data: { subject: classInfo.subject },
+        position: { x: rootX, y: 20 },
       });
 
-      // Layout units horizontally and their topics vertically under them
       units.forEach((unitNode: any, unitIdx: number) => {
         const unitX = unitIdx * columnSpacing + 110;
-        const unitY = 180;
-        
-        // Match unit node to DB chapter by checking source_node_id
         const ch = chapters.find(c => c.source_node_id === unitNode.id);
-        const unitTargetId = ch ? ch.chapter_id : unitNode.id;
+        const nodeId = ch ? ch.chapter_id : unitNode.id;
 
         flowNodes.push({
-          id: unitTargetId,
-          type: 'default',
+          id: nodeId,
+          type: 'chapterNode',
           data: {
-            label: (
-              <div className="text-left font-medium p-1 relative group">
-                <div className="flex justify-between items-center gap-2">
-                  <span className="text-[8px] font-mono text-slate-500 font-bold uppercase">Topic {unitIdx + 1}</span>
-                  <span 
-                    className="w-2.5 h-2.5 rounded-full shadow-sm animate-pulse" 
-                    style={{ backgroundColor: getStatusColor(ch ? ch.status : 'unset') }} 
-                  />
-                </div>
-                <div className="text-xs font-bold text-slate-200 mt-1.5 font-heading truncate w-36">
-                  {unitNode.title}
-                </div>
-                <div className="text-[8px] text-slate-400 font-bold uppercase mt-1">
-                  {getStatusLabel(ch ? ch.status : 'unset')}
-                </div>
-                {!ch || ch.status === 'unset' ? (
-                  <div className="mt-2 pt-1.5 border-t border-slate-800 text-center">
-                    <span className="text-[9px] text-violet-400 font-extrabold uppercase hover:underline">
-                      Assign to Class
-                    </span>
-                  </div>
-                ) : (
-                  <div className="mt-2 pt-1.5 border-t border-slate-800 text-center flex justify-between items-center text-[9px] text-slate-400">
-                    <span>8 Activities</span>
-                    <span className="text-emerald-400 font-bold">Active</span>
-                  </div>
-                )}
-              </div>
-            )
+            title: ch ? ch.title : unitNode.title,
+            status: ch?.status ?? 'unset',
+            index: unitIdx,
+            onAssign: ch ? () => { setSelectedChapter(ch); setAssignOpen(true); } : undefined,
           },
-          position: { x: unitX, y: unitY },
-          style: {
-            background: 'rgba(15, 23, 42, 0.9)',
-            border: `2px solid ${getStatusColor(ch ? ch.status : 'unset')}`,
-            borderRadius: '10px',
-            color: '#fff',
-            width: 180,
-            cursor: ch ? 'pointer' : 'default',
-            boxShadow: ch && ch.status !== 'unset' ? `0 0 10px ${getStatusColor(ch.status)}20` : 'none',
-          }
+          position: { x: unitX, y: 180 },
         });
 
-        // Connect root class to the unit
         flowEdges.push({
-          id: `root-to-${unitTargetId}`,
+          id: `root-${nodeId}`,
           source: 'root-class',
-          target: unitTargetId,
+          target: nodeId,
           animated: ch ? ch.status !== 'unset' : false,
-          style: { stroke: '#8b5cf6', strokeWidth: 1.5 }
+          style: { stroke: '#8b5cf6', strokeWidth: 1.5 },
         });
 
-        // Layout topics vertically under each unit column
-        const topics = unitNode.children || [];
+        const topics: any[] = unitNode.children || [];
         topics.forEach((topicNode: any, topicIdx: number) => {
-          const topicX = unitX + 10; // align centered: width 160 under width 180
-          const topicY = unitY + 150 + topicIdx * 120;
-
           flowNodes.push({
             id: topicNode.id,
-            type: 'default',
-            data: {
-              label: (
-                <div className="text-left p-1.5">
-                  <span className="text-[7px] font-mono text-slate-500 font-bold uppercase">Concept</span>
-                  <div className="text-[11px] font-semibold text-slate-300 mt-0.5 leading-snug">
-                    {topicNode.title}
-                  </div>
-                </div>
-              )
-            },
-            position: { x: topicX, y: topicY },
-            style: {
-              background: 'rgba(15, 23, 42, 0.4)',
-              border: `1px dashed ${ch ? getStatusColor(ch.status) : '#334155'}`,
-              borderRadius: '8px',
-              color: '#fff',
-              width: 160,
-              cursor: 'default',
-            }
+            type: 'conceptNode',
+            data: { title: topicNode.title, color: ch ? getStatusColor(ch.status) : '#334155' },
+            position: { x: unitX + 15, y: 340 + topicIdx * 110 },
           });
-
-          // Connect unit -> topic 1 -> topic 2 sequentially to show learning pathway
-          const sourceId = topicIdx === 0 ? unitTargetId : topics[topicIdx - 1].id;
+          const srcId = topicIdx === 0 ? nodeId : topics[topicIdx - 1].id;
           flowEdges.push({
-            id: `edge-${sourceId}-to-${topicNode.id}`,
-            source: sourceId,
+            id: `e-${srcId}-${topicNode.id}`,
+            source: srcId,
             target: topicNode.id,
-            animated: ch ? ch.status === 'active' : false,
-            style: { 
-              stroke: ch ? getStatusColor(ch.status) : '#334155', 
-              strokeWidth: 1.2,
-              strokeDasharray: ch && ch.status === 'unset' ? '3' : 'none'
-            }
+            animated: ch?.status === 'active',
+            style: { stroke: ch ? getStatusColor(ch.status) : '#334155', strokeWidth: 1.2, strokeDasharray: (!ch || ch.status === 'unset') ? '3' : 'none' },
           });
         });
       });
     } else {
-      // Fallback: flat list layout if curriculum details are not loaded yet
+      // ---- Flat grid layout (no curriculum tree yet) ----
+      const cols = Math.min(3, chapters.length);
+      const totalW = (cols - 1) * 270;
       flowNodes.push({
         id: 'root-class',
-        type: 'default',
-        data: { 
-          label: (
-            <div className="text-center font-bold font-heading p-1">
-              <span className="text-[9px] uppercase tracking-widest text-violet-400 font-bold">Primary Topic</span>
-              <div className="text-sm text-white mt-0.5 font-extrabold">{classInfo.subject} Overview</div>
-            </div>
-          )
-        },
-        position: { x: 350, y: 20 },
-        style: {
-          background: 'rgba(139, 92, 246, 0.12)',
-          border: '2px solid #8b5cf6',
-          borderRadius: '12px',
-          color: '#fff',
-          width: 200,
-          boxShadow: '0 0 15px rgba(139, 92, 246, 0.2)',
-        }
+        type: 'rootNode',
+        data: { subject: classInfo.subject },
+        position: { x: totalW / 2 + 50, y: 20 },
       });
 
       chapters.forEach((ch, idx) => {
-        const colsCount = Math.min(3, chapters.length);
-        const colIdx = idx % colsCount;
-        const rowIdx = Math.floor(idx / colsCount);
-        
-        const xPos = colIdx * 280 + 100;
-        const yPos = rowIdx * 180 + 180;
-
+        const col = idx % cols;
+        const row = Math.floor(idx / cols);
         flowNodes.push({
           id: ch.chapter_id,
-          type: 'default',
+          type: 'chapterNode',
           data: {
-            label: (
-              <div className="text-left font-medium p-1 relative group">
-                <div className="flex justify-between items-center gap-2">
-                  <span className="text-[8px] font-mono text-slate-500 font-bold uppercase">Topic {idx + 1}</span>
-                  <span 
-                    className="w-2 h-2 rounded-full shadow-sm animate-pulse" 
-                    style={{ backgroundColor: getStatusColor(ch.status) }} 
-                  />
-                </div>
-                <div className="text-xs font-bold text-slate-200 mt-1.5 font-heading truncate w-36">
-                  {ch.title}
-                </div>
-                <div className="text-[8px] text-slate-400 font-bold uppercase mt-1">
-                  {getStatusLabel(ch.status)}
-                </div>
-                {ch.status === 'unset' ? (
-                  <div className="mt-2 pt-1.5 border-t border-slate-800 text-center">
-                    <span className="text-[9px] text-violet-400 font-extrabold uppercase hover:underline">
-                      Assign to Class
-                    </span>
-                  </div>
-                ) : (
-                  <div className="mt-2 pt-1.5 border-t border-slate-800 text-center flex justify-between items-center text-[9px] text-slate-400">
-                    <span>8 Activities</span>
-                    <span className="text-emerald-400 font-bold">Active</span>
-                  </div>
-                )}
-              </div>
-            )
+            title: ch.title,
+            status: ch.status,
+            index: idx,
+            onAssign: () => { setSelectedChapter(ch); setAssignOpen(true); },
           },
-          position: { x: xPos, y: yPos },
-          style: {
-            background: 'rgba(15, 23, 42, 0.9)',
-            border: `2px solid ${getStatusColor(ch.status)}`,
-            borderRadius: '10px',
-            color: '#fff',
-            width: 180,
-            cursor: 'pointer',
-            boxShadow: ch.status !== 'unset' ? `0 0 10px ${getStatusColor(ch.status)}20` : 'none',
-          }
+          position: { x: col * 270 + 50, y: row * 200 + 180 },
         });
-
-        if (rowIdx === 0) {
-          flowEdges.push({
-            id: `root-to-${ch.chapter_id}`,
-            source: 'root-class',
-            target: ch.chapter_id,
-            animated: true,
-            style: { stroke: '#8b5cf6', strokeWidth: 1.5 }
-          });
+        if (row === 0) {
+          flowEdges.push({ id: `root-${ch.chapter_id}`, source: 'root-class', target: ch.chapter_id, animated: true, style: { stroke: '#8b5cf6', strokeWidth: 1.5 } });
         } else {
-          const parentChapter = chapters[idx - colsCount];
-          if (parentChapter) {
-            flowEdges.push({
-              id: `edge-${parentChapter.chapter_id}-to-${ch.chapter_id}`,
-              source: parentChapter.chapter_id,
-              target: ch.chapter_id,
-              animated: ch.status !== 'unset',
-              style: { 
-                stroke: getStatusColor(ch.status), 
-                strokeWidth: 1.5,
-                strokeDasharray: ch.status === 'unset' ? '4' : 'none'
-              }
-            });
-          }
+          const parent = chapters[idx - cols];
+          if (parent) flowEdges.push({ id: `e-${parent.chapter_id}-${ch.chapter_id}`, source: parent.chapter_id, target: ch.chapter_id, animated: ch.status !== 'unset', style: { stroke: getStatusColor(ch.status), strokeWidth: 1.5, strokeDasharray: ch.status === 'unset' ? '4' : 'none' } });
         }
       });
     }
   }
 
-  const handleNodeClick = (_event: unknown, node: Node) => {
-    if (node.id === 'root-class') return;
-    const ch = chapters.find(c => c.chapter_id === node.id);
-    if (ch) {
-      setSelectedChapter(ch);
-      setAssignOpen(true);
-    }
-  };
 
   const handleAssignSubmit = async () => {
     if (!classId || !selectedChapter || selectedActivities.length === 0) return;
     setSubmittingAssignment(true);
 
     try {
-      // Call backend to create assignments
+      // Create one assignment per selected activity type
       for (const actType of selectedActivities) {
+        const actLabel = ACTIVITY_OPTIONS.find(a => a.id === actType)?.label || actType;
         await api.createAssignment(classId, {
           chapter_id: selectedChapter.chapter_id,
           assignment_type: actType,
-          title: `${selectedChapter.title} - ${actType.replace('_', ' ').toUpperCase()}`,
-          instructions: instructionsNote || `Please complete the ${actType} assignment.`
+          title: `${selectedChapter.title} — ${actLabel}`,
+          instructions: instructionsNote || undefined
         });
       }
 
-      // Force-update chapter status locally to refresh roadmap state
-      setChapters(prev => prev.map(c => c.chapter_id === selectedChapter.chapter_id ? { ...c, status: 'active' } : c));
+      // Refresh chapter list so roadmap nodes update status
+      const refreshedChapters = await api.getChapters(classId);
+      setChapters(refreshedChapters.sort((a, b) => a.sequence_number - b.sequence_number));
+
+      // Refresh assignments list for dashboard
+      const refreshedAssignments = await api.getAssignments(classId);
+      setAssignments(refreshedAssignments as any);
+
       setAssignOpen(false);
       setSelectedChapter(null);
-    } catch (e) {
+      setInstructionsNote('');
+      setAssignSuccess(true);
+      setTimeout(() => setAssignSuccess(false), 4000);
+    } catch (e: any) {
       console.error(e);
-      alert('Failed to assign topic. Please try again.');
+      alert(e.message || 'Failed to assign topic. Please try again.');
     } finally {
       setSubmittingAssignment(false);
     }
@@ -510,27 +466,28 @@ export const ClassView: React.FC = () => {
               </button>
             </div>
           ) : (
-            /* REACT FLOW ROADMAP GRAPH */
+            /* REACT FLOW ROADMAP GRAPH with custom interactive nodes */
             <div className="w-full border border-slate-900 rounded-2xl overflow-hidden bg-slate-950/40 backdrop-blur-sm h-[650px] relative">
               <ReactFlow
                 nodes={flowNodes}
                 edges={flowEdges}
-                onNodeClick={handleNodeClick}
+                nodeTypes={nodeTypes}
+                nodesDraggable={false}
                 fitView
               >
                 <Background color="#1e293b" gap={16} />
                 <Controls />
               </ReactFlow>
 
-              {/* Custom Legend at Bottom Right */}
+              {/* Legend */}
               <div className="absolute bottom-4 right-4 bg-slate-950/90 border border-slate-800 p-4 rounded-xl flex flex-col gap-2 z-10 text-[11px] font-bold">
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-[#10b981]" />
-                  <span>Completed by Class</span>
+                  <span>Active</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-[#f59e0b]" />
-                  <span>Assigned Topic</span>
+                  <span>Assigned</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-[#64748b]" />
@@ -567,6 +524,47 @@ export const ClassView: React.FC = () => {
                 </div>
               </div>
 
+              {/* Assigned Tasks List Card */}
+              <div className="glass-panel p-6 flex flex-col gap-4">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                  <div className="flex items-center gap-2">
+                    <ListChecks size={16} className="text-violet-400" />
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-slate-200">Assigned Tasks</h3>
+                  </div>
+                  <span className="text-[10px] font-bold text-violet-400 uppercase tracking-widest bg-violet-500/10 px-2.5 py-0.5 rounded border border-violet-500/20">
+                    {assignments.length} Tasks
+                  </span>
+                </div>
+
+                {assignments.length > 0 ? (
+                  <div className="flex flex-col gap-2 max-h-72 overflow-y-auto pr-1">
+                    {assignments.map((a: any) => (
+                      <div key={a.assignment_id} className="flex items-center justify-between p-3 bg-slate-950/40 rounded-xl border border-slate-800/60 hover:border-slate-700 transition-colors">
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-xs font-bold text-slate-200 truncate max-w-[220px]">{a.title}</span>
+                          <span className="text-[10px] text-slate-500 font-mono uppercase tracking-wider">
+                            {(a.assignment_type || '').replace('_', ' ')}
+                          </span>
+                        </div>
+                        <span className={`text-[9px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${
+                          a.status === 'ready'
+                            ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                            : a.status === 'failed'
+                              ? 'bg-rose-500/10 border-rose-500/20 text-rose-400'
+                              : 'bg-amber-500/10 border-amber-500/20 text-amber-400'
+                        }`}>
+                          {a.status}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-8 bg-slate-950/20 border border-slate-800 rounded-xl text-center text-xs text-slate-500 font-semibold">
+                    No tasks assigned yet. Click a chapter node on the Roadmap to assign activities.
+                  </div>
+                )}
+              </div>
+
               {/* Student Progress List Card */}
               <div className="glass-panel p-6 flex flex-col gap-4">
                 <div className="flex items-center justify-between border-b border-slate-800 pb-3">
@@ -574,7 +572,7 @@ export const ClassView: React.FC = () => {
                     <Users size={16} className="text-violet-400" />
                     <h3 className="text-sm font-bold uppercase tracking-wider text-slate-200">Student Progress List</h3>
                   </div>
-                  <span className="text-[9px] font-bold text-rose-450 uppercase tracking-widest bg-rose-500/10 px-2.5 py-0.5 rounded border border-rose-500/25">
+                  <span className="text-[9px] font-bold text-rose-400 uppercase tracking-widest bg-rose-500/10 px-2.5 py-0.5 rounded border border-rose-500/25">
                     Backend Missing
                   </span>
                 </div>
@@ -606,7 +604,7 @@ export const ClassView: React.FC = () => {
                       </div>
                     ))
                   ) : (
-                    <div className="p-8 bg-slate-950/20 border border-slate-800 rounded-xl text-center text-xs text-slate-550 italic font-semibold">
+                    <div className="p-8 bg-slate-950/20 border border-slate-800 rounded-xl text-center text-xs text-slate-500 italic font-semibold">
                       No Student Activity Data Available (No submissions logged yet).
                     </div>
                   )}
@@ -668,6 +666,14 @@ export const ClassView: React.FC = () => {
         )}
       </div>
 
+      {/* SUCCESS TOAST */}
+      {assignSuccess && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-emerald-900/90 border border-emerald-500/40 text-emerald-300 px-5 py-3 rounded-2xl shadow-2xl backdrop-blur-md animate-fade-in">
+          <CheckCircle2 size={18} className="text-emerald-400" />
+          <span className="text-sm font-bold">Assigned to all enrolled students successfully!</span>
+        </div>
+      )}
+
       {/* ASSIGN TOPIC MODAL */}
       {assignOpen && selectedChapter && (
         <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
@@ -681,12 +687,12 @@ export const ClassView: React.FC = () => {
               <X size={18} />
             </button>
 
-            <div className="text-center md:text-left">
+            <div>
               <h2 className="text-2xl font-bold tracking-tight text-slate-100 font-heading">
-                Assign Topic
+                Assign to Class
               </h2>
               <p className="text-xs text-slate-400 mt-1">
-                Configure learning details and assign tasks for **{selectedChapter.title}**
+                Assign activities for <span className="font-bold text-violet-400">{selectedChapter.title}</span> to all enrolled students.
               </p>
             </div>
 
@@ -702,28 +708,12 @@ export const ClassView: React.FC = () => {
                 />
               </div>
 
-              {/* Goal Field */}
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-450">Learning Goal</label>
-                <select className="form-input bg-slate-950 border-slate-800 text-slate-200">
-                  <option value="understanding">Conceptual Understanding</option>
-                  <option value="solving">Mathematical & Formula Problem Solving</option>
-                  <option value="applications">Real-world Connection & Applications</option>
-                </select>
-              </div>
-
               {/* Activities Checkboxes */}
               <div className="flex flex-col gap-2">
                 <label className="text-[10px] font-bold uppercase tracking-wider text-slate-450">Activities to Include</label>
                 
                 <div className="flex flex-wrap gap-2">
-                  {[
-                    { id: 'explain_it', label: 'Storyboard (Visual)' },
-                    { id: 'predict_it', label: 'Playground (Interactive)' },
-                    { id: 'quiz', label: 'Prove It (Quiz)' },
-                    { id: 'spot_it', label: 'Spot the Mistake' },
-                    { id: 'connect_it', label: 'Wrong One (Concept Relationship)' },
-                  ].map(act => {
+                  {ACTIVITY_OPTIONS.map(act => {
                     const active = selectedActivities.includes(act.id);
                     return (
                       <button
@@ -741,12 +731,16 @@ export const ClassView: React.FC = () => {
                     );
                   })}
                 </div>
+
+                {selectedActivities.length === 0 && (
+                  <p className="text-[10px] text-rose-400 font-bold">Select at least one activity to assign.</p>
+                )}
               </div>
 
               {/* Due Date */}
               <div className="flex flex-col gap-1.5">
                 <label className="text-[10px] font-bold uppercase tracking-wider text-slate-450 flex items-center gap-1">
-                  <Calendar size={12} /> Due Date
+                  <Calendar size={12} /> Due Date <span className="text-slate-600 normal-case font-medium">(informational only)</span>
                 </label>
                 <input 
                   type="date"
@@ -758,9 +752,9 @@ export const ClassView: React.FC = () => {
 
               {/* Instructions text */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-450">Teacher Notes / Instructions</label>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-450">Teacher Instructions (optional)</label>
                 <textarea 
-                  placeholder="Paste special notes, context, or instructions here..."
+                  placeholder="Add special notes or context for students..."
                   value={instructionsNote}
                   onChange={(e) => setInstructionsNote(e.target.value)}
                   rows={2}
@@ -775,11 +769,14 @@ export const ClassView: React.FC = () => {
               className="btn-primary w-full py-3 mt-2 font-bold"
             >
               {submittingAssignment ? (
-                <span className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                <>
+                  <span className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                  <span>Assigning to all students...</span>
+                </>
               ) : (
                 <>
                   <CheckCircle2 size={16} />
-                  <span>Assign to Class</span>
+                  <span>Assign to All Students</span>
                 </>
               )}
             </button>

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import threading
 from datetime import datetime, timezone
 
 import httpx
@@ -8,7 +7,6 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.core.database import SessionLocal
 from app.core.models import Assignment, AssignmentRecipient, Chapter, ChapterAsset, ChapterAssetGenerationJob, User
 from app.repositories.assignment_repository import (
     create_assignment,
@@ -17,7 +15,6 @@ from app.repositories.assignment_repository import (
     get_assignment,
     get_assignment_jobs,
     get_assignment_recipient,
-    get_queued_generation_job,
     list_assignments_for_class,
     list_assignments_for_student,
 )
@@ -32,6 +29,8 @@ from app.schemas.assignment import (
     StudentAssignmentListItem,
     StudentAssignmentResponse,
 )
+from app.services.media_queue import enqueue_media_generation_job
+from app.services.media_service import store_generated_manim_video
 from app.services.model_finder import find_model, query_llm
 import json
 
@@ -57,8 +56,6 @@ ASSIGNMENT_TYPE_TO_ASSET_TYPE = {
     "spot_it": "spot_it",
     "connect_it": "connect_it",
 }
-_worker_stop_event = threading.Event()
-_worker_thread: threading.Thread | None = None
 
 
 def _ensure_teacher_has_access(db: Session, user: User, class_id: str) -> None:
@@ -136,7 +133,7 @@ def _create_generation_jobs(db: Session, assignment: Assignment, chapter: Chapte
             "payload_json": asset.payload_json,
         }
 
-        create_generation_job(
+        generation_job = create_generation_job(
             db,
             ChapterAssetGenerationJob(
                 assignment_id=assignment.id,
@@ -149,6 +146,11 @@ def _create_generation_jobs(db: Session, assignment: Assignment, chapter: Chapte
             ),
         )
         asset.generation_status = "queued"
+        try:
+            enqueue_media_generation_job(str(generation_job.id))
+        except Exception:
+            # The DB row is the source of truth; the queue can be rebuilt on startup.
+            pass
         created += 1
 
     db.commit()
@@ -385,9 +387,16 @@ def _apply_generation_result(db: Session, job: ChapterAssetGenerationJob, result
         asset.payload_json = {**asset.payload_json, "generated": True, "result": result}
 
         if job.provider == "manim":
-            asset.external_url = str(result.get("video_path") or result.get("video_url") or "") or None
+            video_id = str(result.get("video_id") or "").strip()
+            if not video_id:
+                raise RuntimeError("Manim generation did not return a video_id")
+            storage_result = store_generated_manim_video(asset, str(job.id), video_id)
+            job.result_json = {**result, **storage_result}
+            asset.payload_json = {**asset.payload_json, "storage": storage_result}
         elif job.provider == "model_finder":
             asset.external_url = str(result.get("embedUrl") or result.get("viewerUrl") or "") or None
+        elif job.provider == "quiz_generator":
+            asset.payload_json = {**asset.payload_json, "quiz": result.get("questions", [])}
     else:
         asset.generation_status = "failed"
         asset.payload_json = {**asset.payload_json, "generated": False, "result": result}
@@ -460,34 +469,3 @@ def process_generation_job(db: Session, job: ChapterAssetGenerationJob) -> None:
         asset.generation_status = "failed"
         asset.payload_json = {**asset.payload_json, "generated": False, "error": str(exc)}
         db.commit()
-
-
-def _worker_loop() -> None:
-    while not _worker_stop_event.is_set():
-        db = SessionLocal()
-        try:
-            job = get_queued_generation_job(db)
-            if not job:
-                db.close()
-                _worker_stop_event.wait(settings.asset_generation_poll_interval_seconds)
-                continue
-
-            process_generation_job(db, job)
-            assignment = get_assignment(db, str(job.assignment_id))
-            if assignment:
-                _refresh_assignment_status(db, str(assignment.id))
-        finally:
-            db.close()
-
-
-def start_assignment_queue_worker() -> None:
-    global _worker_thread
-    if _worker_thread and _worker_thread.is_alive():
-        return
-    _worker_stop_event.clear()
-    _worker_thread = threading.Thread(target=_worker_loop, daemon=True)
-    _worker_thread.start()
-
-
-def stop_assignment_queue_worker() -> None:
-    _worker_stop_event.set()

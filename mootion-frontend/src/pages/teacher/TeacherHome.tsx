@@ -226,49 +226,13 @@ export const TeacherHome: React.FC<TeacherHomeProps> = ({ user, onLogout, onLang
                 <h3 className="text-xs font-bold uppercase tracking-wider">Attention Required</h3>
               </div>
 
-              {alerts.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {alerts.map(alert => (
-                    <div 
-                      key={alert.id}
-                      onClick={() => {
-                        if (alert.actionUrl.includes('analytics')) {
-                          navigate('/teacher/analytics');
-                        } else {
-                          setActiveTab('classes');
-                        }
-                      }}
-                      className={`glass-card p-4 flex gap-3 border-l-4 cursor-pointer hover:scale-[1.02] ${
-                        alert.type === 'warning' 
-                          ? 'border-l-amber-500 bg-amber-500/5 hover:bg-amber-500/10' 
-                          : alert.type === 'info' 
-                          ? 'border-l-cyan-500 bg-cyan-500/5 hover:bg-cyan-500/10' 
-                          : 'border-l-emerald-500 bg-emerald-500/5 hover:bg-emerald-500/10'
-                      }`}
-                    >
-                      <div className="mt-0.5">
-                        {alert.type === 'warning' && <ShieldAlert size={16} className="text-amber-500" />}
-                        {alert.type === 'info' && <Bell size={16} className="text-cyan-500" />}
-                        {alert.type === 'success' && <CheckCircle2 size={16} className="text-emerald-500" />}
-                      </div>
-                      <div className="flex-1 flex flex-col justify-between gap-2">
-                        <p className="text-xs text-slate-200 font-semibold leading-relaxed">
-                          {alert.text}
-                        </p>
-                        <span className="text-[10px] text-violet-400 font-bold uppercase tracking-wider flex items-center gap-0.5">
-                          Resolve Action <ChevronRight size={10} />
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="glass-panel p-6 flex flex-col items-center justify-center text-center py-8">
-                  <CheckCircle2 size={28} className="text-emerald-500 mb-2" />
-                  <h4 className="font-bold text-slate-200 text-sm">All Systems Clear</h4>
-                  <p className="text-xs text-slate-500 mt-1">No alerts or pending misconceptions detected.</p>
-                </div>
-              )}
+              <div className="glass-panel p-6 flex flex-col items-center justify-center text-center py-8 border-amber-500/20 bg-amber-500/5">
+                <ShieldAlert size={28} className="text-amber-500 mb-2" />
+                <h4 className="font-bold text-slate-200 text-sm">No backend endpoint available</h4>
+                <p className="text-xs text-slate-400 mt-1 max-w-md">
+                  Classroom notifications and real-time alert logs are currently not supported by the backend services.
+                </p>
+              </div>
             </div>
 
             {/* CLASSES GRID */}
@@ -304,10 +268,10 @@ export const TeacherHome: React.FC<TeacherHomeProps> = ({ user, onLogout, onLang
                       <div className="flex items-center justify-between border-t border-slate-800/80 pt-4 text-xs font-bold text-slate-400">
                         <span className="flex items-center gap-1">
                           <Users size={14} className="text-slate-500" />
-                          {cls.students_count} Students
+                          {cls.students_count ?? 'N/A'} Students
                         </span>
                         <span className="bg-slate-900 px-2.5 py-1 rounded-full border border-slate-800 text-[10px]">
-                          Last activity: {cls.last_activity_date}
+                          Last activity: {cls.last_activity_date ?? 'N/A'}
                         </span>
                       </div>
                     </div>
@@ -363,10 +327,10 @@ export const TeacherHome: React.FC<TeacherHomeProps> = ({ user, onLogout, onLang
                   <div className="flex items-center justify-between border-t border-slate-800/80 pt-4 text-xs font-bold text-slate-400">
                     <span className="flex items-center gap-1">
                       <Users size={14} className="text-slate-500" />
-                      {cls.students_count} Students
+                      {cls.students_count ?? 'N/A'} Students
                     </span>
                     <span className="bg-slate-900 px-2.5 py-1 rounded-full border border-slate-800 text-[10px]">
-                      Last activity: {cls.last_activity_date}
+                      Last activity: {cls.last_activity_date ?? 'N/A'}
                     </span>
                   </div>
                 </div>

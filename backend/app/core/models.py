@@ -297,6 +297,8 @@ class ChapterAsset(Base):
     payload_json = Column(JSON, nullable=False)
     generation_status = Column(String(20), nullable=False, default="placeholder")
     external_url = Column(String(500), nullable=True)
+    storage_bucket = Column(String(128), nullable=True)
+    storage_key = Column(String(512), nullable=True)
     last_generated_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
@@ -386,4 +388,3 @@ class UserQuota(Base):
     playground_items_used_week = Column(Integer, nullable=False, default=0)
     last_doubt_reset = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     last_playground_reset = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-

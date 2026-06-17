@@ -181,8 +181,8 @@ export const DoubtDashboard: React.FC = () => {
         ) : (
           <div className="glass-panel p-12 flex flex-col items-center justify-center text-center">
             <Check size={48} className="text-emerald-500 mb-3 animate-bounce" />
-            <h4 className="font-bold text-slate-300 font-heading">Doubt Feed Clear</h4>
-            <p className="text-slate-500 text-xs mt-1">Students have not flagged any doubts today.</p>
+            <h4 className="font-bold text-slate-300 font-heading">Doubt Feed Clear (No data available)</h4>
+            <p className="text-slate-500 text-xs mt-1">Students have not submitted any doubts yet.</p>
           </div>
         )}
       </div>

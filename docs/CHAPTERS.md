@@ -65,6 +65,8 @@ Each asset has:
 - `payload_json`
 - `generation_status`
 - `external_url`
+- `storage_bucket`
+- `storage_key`
 
 ### Why placeholders exist
 
@@ -134,7 +136,8 @@ That means:
 
 - bootstrap creates structure
 - assignment creates content demand
-- the queue fills in the content asynchronously
+- the Redis queue fills in the content asynchronously
+- rendered videos are stored in MinIO and served back through the backend media URL
 
 This is deliberate so the system does not generate content before it is needed.
 

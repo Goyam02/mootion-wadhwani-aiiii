@@ -5,7 +5,7 @@ import {
   Flame, ArrowRight, HelpCircle, Sparkles, Plus, BookOpen, AlertCircle, RefreshCw
 } from 'lucide-react';
 import { api } from '../../api';
-import { ClassInfo, User, StudentTask } from '../../types';
+import { ClassInfo, ChapterInfo, User, StudentTask } from '../../types';
 
 interface StudentHomeProps {
   user: User;
@@ -17,6 +17,7 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState<'home' | 'tasks' | 'explore' | 'profile'>('home');
   const [classes, setClasses] = useState<ClassInfo[]>([]);
   const [tasks, setTasks] = useState<StudentTask[]>([]);
+  const [chapters, setChapters] = useState<ChapterInfo[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Class code join state
@@ -33,8 +34,14 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ user, onLogout }) => {
         const cls = await api.getStudentClasses();
         setClasses(cls);
         if (cls.length > 0) {
-          const tsk = await api.getStudentAssignments(cls[0].class_id);
+          const firstClassId = cls[0].class_id;
+          localStorage.setItem('active_class_id', firstClassId);
+          const [tsk, chaps] = await Promise.all([
+            api.getStudentAssignments(firstClassId),
+            api.getChapters(firstClassId).catch(() => [] as ChapterInfo[])
+          ]);
           setTasks(tsk);
+          setChapters(chaps);
         }
       } catch (e) {
         console.error(e);
@@ -161,9 +168,10 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ user, onLogout }) => {
                 <p className="text-slate-400 text-xs mt-0.5">Let's practice some science concepts today!</p>
               </div>
 
-              <div className="streak-badge">
-                <Flame size={16} fill="white" />
-                <span>7 days in a row</span>
+              {/* Streak: No backend endpoint available */}
+              <div className="flex items-center gap-1.5 bg-slate-900/60 border border-slate-800 text-slate-500 rounded-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider">
+                <AlertCircle size={12} className="text-slate-600" />
+                <span>Streak — No endpoint</span>
               </div>
             </div>
 
@@ -266,35 +274,13 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ user, onLogout }) => {
                   My Progress
                 </span>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  {[
-                    { id: '1', subject: 'Physics', concept: 'Electric Current', score: 3.0 },
-                    { id: '2', subject: 'Mathematics', concept: 'Algebraic Equations', score: 2.0 },
-                    { id: '3', subject: 'Chemistry', concept: 'Chemical Bonding', score: 1.0 },
-                    { id: '4', subject: 'Biology', concept: 'Plant Cell structure', score: 3.0 },
-                  ].map(prog => (
-                    <div 
-                      key={prog.id}
-                      onClick={() => navigate('/student/profile')}
-                      className="glass-card p-4 flex flex-col justify-between gap-4 cursor-pointer"
-                    >
-                      <div className="flex flex-col gap-1">
-                        <span className="text-[9px] font-bold uppercase text-slate-500 tracking-widest">
-                          {prog.subject}
-                        </span>
-                        <span className="text-xs font-bold text-slate-350 truncate">
-                          {prog.concept}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-between border-t border-slate-900 pt-3 text-[10px] font-bold">
-                        <span className="text-slate-500">Understanding</span>
-                        <span className={`px-2 py-0.5 rounded font-mono ${getScoreColor(prog.score)}`}>
-                          {prog.score.toFixed(1)}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+                {/* No student-facing progress endpoint available */}
+                <div className="glass-panel p-5 flex items-center gap-3 border-dashed border-slate-700">
+                  <AlertCircle size={18} className="text-slate-600 flex-shrink-0" />
+                  <div className="flex flex-col">
+                    <span className="text-xs font-bold text-slate-400">No backend endpoint available</span>
+                    <span className="text-[11px] text-slate-600 mt-0.5">Student-facing progress scores require a dedicated API endpoint (e.g. <code className="font-mono text-slate-500">/students/progress</code>).</span>
+                  </div>
                 </div>
               </div>
             )}
@@ -306,32 +292,38 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ user, onLogout }) => {
                   Continue Exploring
                 </span>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-                  {[
-                    { id: 'e1', title: 'Chapter 1: Electric Current', subtitle: 'Explore video and run interactive resistor labs freely.' },
-                    { id: 'e2', title: 'Chapter 2: Ohm\'s Law and Circuits', subtitle: 'Examine V-I curves and learn about non-ohmic components.' }
-                  ].map(ch => (
-                    <div
-                      key={ch.id}
-                      onClick={() => navigate('/student/explore')}
-                      className="glass-panel p-5 cursor-pointer hover:border-slate-700 hover:scale-[1.01] flex flex-col gap-4"
-                    >
-                      <div className="w-full aspect-video bg-slate-900 border border-slate-800 rounded-lg flex items-center justify-center relative overflow-hidden text-slate-500">
-                        <Compass size={32} className="opacity-30" />
-                        <div className="absolute top-2 right-2 bg-violet-600/20 text-violet-300 border border-violet-500/20 rounded-full px-2 py-0.5 text-[9px] font-bold">
-                          Unlocked
+                {chapters.length === 0 ? (
+                  <div className="glass-panel p-5 flex items-center gap-3 border-dashed border-slate-700">
+                    <AlertCircle size={18} className="text-slate-600 flex-shrink-0" />
+                    <span className="text-xs font-bold text-slate-400">No data available — no chapters found for your class.</span>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                    {chapters.slice(0, 6).map(ch => (
+                      <div
+                        key={ch.chapter_id}
+                        onClick={() => navigate('/student/explore')}
+                        className="glass-panel p-5 cursor-pointer hover:border-slate-700 hover:scale-[1.01] flex flex-col gap-4"
+                      >
+                        <div className="w-full aspect-video bg-slate-900 border border-slate-800 rounded-lg flex items-center justify-center relative overflow-hidden text-slate-500">
+                          <Compass size={32} className="opacity-30" />
+                          <div className="absolute top-2 right-2 bg-violet-600/20 text-violet-300 border border-violet-500/20 rounded-full px-2 py-0.5 text-[9px] font-bold">
+                            {ch.status === 'active' ? 'Active' : 'Unlocked'}
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col gap-1">
+                          <h4 className="font-bold text-slate-200 text-sm font-heading">{ch.title}</h4>
+                          {ch.description && (
+                            <p className="text-slate-400 text-xs leading-relaxed mt-0.5">
+                              {ch.description}
+                            </p>
+                          )}
                         </div>
                       </div>
-
-                      <div className="flex flex-col gap-1">
-                        <h4 className="font-bold text-slate-200 text-sm font-heading">{ch.title}</h4>
-                        <p className="text-slate-400 text-xs leading-relaxed mt-0.5">
-                          {ch.subtitle}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>

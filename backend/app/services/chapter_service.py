@@ -15,6 +15,7 @@ from app.repositories.chapter_repository import (
 from app.repositories.curriculum_repository import get_curriculum_plan
 from app.repositories.onboarding_repository import get_teacher_class_membership
 from app.schemas.chapter import ChapterAssetResponse, ChapterBootstrapResponse, ChapterListItem, ChapterResponse
+from app.services.media_service import resolve_asset_media_url
 
 
 PLACEHOLDER_ASSETS = [
@@ -135,7 +136,7 @@ def _chapter_to_response(db: Session, chapter: Chapter) -> ChapterResponse:
                 title=asset.title,
                 description=asset.description,
                 generation_status=asset.generation_status,
-                external_url=asset.external_url,
+                external_url=resolve_asset_media_url(asset),
                 payload_json=asset.payload_json,
             )
             for asset in assets
