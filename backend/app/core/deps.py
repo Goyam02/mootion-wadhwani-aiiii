@@ -69,3 +69,4 @@ def require_role(*allowed_roles: str):
 
 require_teacher = require_role("teacher")
 require_student = require_role("student")
+require_teacher_or_student = require_role("teacher", "student")

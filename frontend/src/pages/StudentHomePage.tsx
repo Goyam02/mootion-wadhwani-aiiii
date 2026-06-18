@@ -9,12 +9,10 @@ import {
   Flame,
   ChevronLeft, 
   ChevronRight,
-  HelpCircle,
   Menu,
   X,
   Play,
   Sparkles,
-  Beaker,
   UserPlus
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -29,7 +27,6 @@ import {
   resetAllTasks, 
   setTeacherAssignedNew 
 } from '../data/taskStore';
-import { TASKS } from '../data/tasks';
 import { api } from '../lib/api';
 
 // Fake Calendar Data Generator for GitHub-style graph (Month view)
@@ -83,13 +80,10 @@ export function StudentHomePage() {
   ]);
   const [isJoining, setIsJoining] = useState(false);
 
-  // Assignments Modal State
+  // Chapters Modal State
   const [selectedClass, setSelectedClass] = useState<any | null>(null);
-  const [classAssignments, setClassAssignments] = useState<any[]>([]);
-  const [isLoadingAssignments, setIsLoadingAssignments] = useState(false);
-
-  // Placeholder Assignment Detail Modal State
-  const [selectedPlaceholderAssignment, setSelectedPlaceholderAssignment] = useState<any | null>(null);
+  const [classChapters, setClassChapters] = useState<any[]>([]);
+  const [isLoadingChapters, setIsLoadingChapters] = useState(false);
 
   // Determine if student has completed all assigned tasks
   const isPlaygroundActive = !teacherAssigned && !localTasks.some(t => t.status !== 'Completed');
@@ -116,18 +110,20 @@ export function StudentHomePage() {
 
   useEffect(() => {
     if (!selectedClass) return;
-    const fetchAssignments = async () => {
-      setIsLoadingAssignments(true);
+    const fetchChapters = async () => {
+      setIsLoadingChapters(true);
       try {
-        const data = await api.get(`/students/classes/${selectedClass.class_id}/assignments`);
-        setClassAssignments(data);
+        const data = await api.get(`/teachers/classes/${selectedClass.class_id}/chapters`);
+        const sorted = [...data].sort((a: any, b: any) => a.sequence_number - b.sequence_number);
+        setClassChapters(sorted);
       } catch (err) {
-        console.error("Failed to fetch class assignments:", err);
+        console.error("Failed to fetch class chapters:", err);
+        setClassChapters([]);
       } finally {
-        setIsLoadingAssignments(false);
+        setIsLoadingChapters(false);
       }
     };
-    fetchAssignments();
+    fetchChapters();
   }, [selectedClass]);
 
   const addClassCodeField = () => {
@@ -642,7 +638,7 @@ export function StudentHomePage() {
         )}
       </AnimatePresence>
 
-      {/* MODAL: Class Assignments List */}
+      {/* MODAL: Class Chapters List */}
       <AnimatePresence>
         {selectedClass && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -665,70 +661,56 @@ export function StudentHomePage() {
               </div>
 
               <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-3.5 my-2 pr-1 min-h-[180px]">
-                {isLoadingAssignments ? (
+                {isLoadingChapters ? (
                   <div className="m-auto flex flex-col items-center gap-3 py-8">
                     <div className="w-8 h-8 border-4 border-[#1800ad]/20 border-t-[#1800ad] rounded-full animate-spin"></div>
-                    <span className="text-xs font-bold text-[#1800ad]/60 animate-pulse">Loading assignments...</span>
+                    <span className="text-xs font-bold text-[#1800ad]/60 animate-pulse">Loading chapters...</span>
                   </div>
-                ) : classAssignments.length === 0 ? (
+                ) : classChapters.length === 0 ? (
                   <div className="m-auto text-center py-8 text-[#1800ad]/60 font-semibold text-sm leading-relaxed max-w-[80%]">
-                     No assignments are queued for this class yet. Enjoy your day!
+                     Your teacher hasn't set up this class yet
                   </div>
                 ) : (
-                  classAssignments.map((assignment) => {
-                    const isReady = assignment.status === 'ready';
-                    const isPending = assignment.status === 'queued' || assignment.status === 'processing';
-                    const isFailed = assignment.status === 'failed';
-
-                    const handleClick = () => {
-                      if (!isReady) return;
-                      const taskExists = TASKS.some(t => t.id === assignment.assignment_id);
-                      if (taskExists) {
-                        setSelectedClass(null);
-                        navigate(`/student/task/${assignment.assignment_id}`);
-                      } else {
-                        setSelectedPlaceholderAssignment(assignment);
-                      }
-                    };
-
-                    return (
-                      <div 
-                        key={assignment.assignment_id}
-                        onClick={handleClick}
-                        className={`p-4 rounded-[20px] border-2 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-                          isReady 
-                            ? 'border-[#1800ad]/15 hover:border-[#1800ad] bg-[#f6f4ee] cursor-pointer' 
-                            : 'border-[#1800ad]/5 bg-[#1800ad]/5 opacity-65'
-                        }`}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-2">
+                    {classChapters.map((chapter, index) => (
+                      <motion.div
+                        key={chapter.chapter_id}
+                        initial={{ opacity: 0, scale: 0.97 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.2, delay: index * 0.03 }}
+                        className="h-[148px] bg-[#1800ad] text-[#f6f4ee] p-5 rounded-[22px] border-[2px] border-[#1800ad] flex flex-col justify-between relative overflow-hidden"
                       >
-                        <div>
-                          <span className="text-[9px] font-bold opacity-60 uppercase tracking-wider block mb-0.5">
-                            {assignment.assignment_type}
+                        {/* Compact Top Header */}
+                        <div className="flex justify-between items-center">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-[#f6f4ee]/80">
+                            Chapter {chapter.sequence_number}
                           </span>
-                          <h4 className="font-extrabold text-[#1800ad] text-sm sm:text-base leading-tight">
-                            {assignment.title}
-                          </h4>
+                          <span className="text-[11px] font-semibold text-[#f6f4ee]/90 flex items-center gap-1 bg-[#f6f4ee]/15 px-2 py-0.5 rounded-full">
+                            {chapter.asset_count} Assets
+                          </span>
                         </div>
-                        <div className="flex items-center shrink-0">
-                          {isReady && (
-                            <span className="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm">
-                              Ready
-                            </span>
-                          )}
-                          {isPending && (
-                            <span className="px-3 py-1 bg-amber-100 text-amber-800 rounded-full text-[10px] font-bold uppercase tracking-wider animate-pulse">
-                              Being prepared...
-                            </span>
-                          )}
-                          {isFailed && (
-                            <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-[10px] font-bold uppercase tracking-wider">
-                              Not available
-                            </span>
-                          )}
+
+                        {/* Title - Elegant Montserrat */}
+                        <div className="my-1.5">
+                          <h3 className="text-[14px] sm:text-[15px] font-extrabold leading-snug tracking-tight text-[#f6f4ee] line-clamp-2">
+                            {chapter.title}
+                          </h3>
                         </div>
-                      </div>
-                    );
-                  })
+
+                        {/* Compact Footer Status */}
+                        <div className="border-t border-[#f6f4ee]/15 pt-2 flex items-center justify-between text-[10px] font-bold">
+                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
+                            chapter.status === 'data_ready' ? 'bg-emerald-400/20 text-emerald-300 border border-emerald-400/30' :
+                            chapter.status === 'active' ? 'bg-blue-400/20 text-blue-300 border border-blue-400/30' :
+                            chapter.status === 'generated' ? 'bg-amber-400/20 text-amber-300 border border-amber-400/30' :
+                            'bg-[#f6f4ee]/15 text-[#f6f4ee]/80 border border-[#f6f4ee]/20'
+                          }`}>
+                            {chapter.status}
+                          </span>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
                 )}
               </div>
 
@@ -738,80 +720,6 @@ export function StudentHomePage() {
                   className="w-full py-3 bg-[#1800ad] border-2 border-[#1800ad] hover:bg-[#f6f4ee] text-[#f6f4ee] hover:text-[#1800ad] font-bold rounded-full text-center text-sm transition-all"
                 >
                   Close
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* MODAL: Placeholder Assignment Detail Preview */}
-      <AnimatePresence>
-        {selectedPlaceholderAssignment && (
-          <div className="fixed inset-0 z-55 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-[#f6f4ee] border-2 border-[#1800ad] rounded-[32px] shadow-2xl p-6 md:p-8 max-w-lg w-full font-montserrat text-[#1800ad] flex flex-col gap-5 relative max-h-[85vh] overflow-y-auto custom-scrollbar"
-            >
-              <button 
-                onClick={() => setSelectedPlaceholderAssignment(null)}
-                className="absolute top-5 right-5 hover:opacity-75 transition-opacity"
-              >
-                <X size={20} />
-              </button>
-
-              <div>
-                <span className="text-[10px] font-bold opacity-60 uppercase tracking-wider block mb-0.5">{selectedPlaceholderAssignment.assignment_type} Preview</span>
-                <h2 className="text-xl md:text-2xl font-black leading-tight">{selectedPlaceholderAssignment.title}</h2>
-              </div>
-
-              <div className="bg-white border border-[#1800ad]/10 rounded-2xl p-6 flex flex-col items-center justify-center text-center py-10">
-                {selectedPlaceholderAssignment.assignment_type === 'quiz' ? (
-                  <>
-                    <HelpCircle size={48} className="text-[#1800ad] mb-4 animate-bounce" />
-                    <h3 className="text-lg font-black text-[#1800ad] mb-2">Quiz Simulator Ready</h3>
-                    <p className="text-xs text-[#1800ad]/70 max-w-xs font-semibold leading-relaxed">
-                      This is a preview of the generated quiz. In a live environment, this loads active database questions from the class presets.
-                    </p>
-                  </>
-                ) : selectedPlaceholderAssignment.assignment_type === 'simulation' ? (
-                  <>
-                    <Beaker size={48} className="text-[#1800ad] mb-4 animate-pulse" />
-                    <h3 className="text-lg font-black text-[#1800ad] mb-2">Virtual Sandbox Ready</h3>
-                    <p className="text-xs text-[#1800ad]/70 max-w-xs font-semibold leading-relaxed">
-                      Interact with Virtual parameters and sliders to explore the core properties of the simulation.
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <Play size={48} className="text-[#1800ad] mb-4" />
-                    <h3 className="text-lg font-black text-[#1800ad] mb-2">Video Player Ready</h3>
-                    <p className="text-xs text-[#1800ad]/70 max-w-xs font-semibold leading-relaxed">
-                      Watch custom AI concept story reels illustrating physical processes in real-time.
-                    </p>
-                  </>
-                )}
-                
-                <button 
-                  onClick={() => {
-                    setSelectedPlaceholderAssignment(null);
-                    setSelectedClass(null);
-                    navigate('/student/playground');
-                  }}
-                  className="mt-6 px-6 py-2.5 bg-[#1800ad] text-[#f6f4ee] border-2 border-[#1800ad] rounded-full text-xs font-black hover:bg-white hover:text-[#1800ad] transition-all shadow"
-                >
-                  Open in Sandbox Playground
-                </button>
-              </div>
-
-              <div className="flex gap-3">
-                <button 
-                  onClick={() => setSelectedPlaceholderAssignment(null)}
-                  className="w-full py-3 bg-transparent border-2 border-[#1800ad] hover:bg-[#1800ad]/5 font-bold rounded-full text-center text-sm"
-                >
-                  Back to assignments
                 </button>
               </div>
             </motion.div>
