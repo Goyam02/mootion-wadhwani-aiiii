@@ -1,7 +1,10 @@
 {
-  "name": "Triad - Ask, Plan, Play",
-  "description": "A unified workspace for inquiry, strategy, and creativity powered by Gemini.",
+  "name": "Remix: Remix: Cursor Following Eyes",
+  "description": "A responsive blue semi-circle with googly eyes that follow the user\u0027s cursor.",
   "requestFramePermissions": [
     "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
   ]
 }
