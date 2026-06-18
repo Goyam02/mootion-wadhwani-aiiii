@@ -13,7 +13,7 @@ from app.repositories.chapter_repository import (
     list_chapters_for_class,
 )
 from app.repositories.curriculum_repository import get_curriculum_plan
-from app.repositories.onboarding_repository import get_teacher_class_membership
+from app.repositories.onboarding_repository import get_teacher_class_membership, get_student_class_membership
 from app.schemas.chapter import ChapterAssetResponse, ChapterBootstrapResponse, ChapterListItem, ChapterResponse
 from app.services.media_service import resolve_asset_media_url
 
@@ -113,6 +113,17 @@ PLACEHOLDER_ASSETS = [
 
 def _ensure_teacher_has_access(db: Session, user: User, class_id: str) -> None:
     membership = get_teacher_class_membership(db, str(user.id), class_id)
+    if not membership:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
+
+def _ensure_user_has_access(db: Session, user: User, class_id: str) -> None:
+    if user.role == "teacher":
+        membership = get_teacher_class_membership(db, str(user.id), class_id)
+    elif user.role == "student":
+        membership = get_student_class_membership(db, str(user.id), class_id)
+    else:
+        membership = None
     if not membership:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
 
@@ -239,7 +250,7 @@ def bootstrap_chapters_from_curriculum(db: Session, user: User, class_id: str, c
 
 def list_class_chapters(db: Session, user: User, class_id: str) -> list[ChapterListItem]:
     from sqlalchemy import func
-    _ensure_teacher_has_access(db, user, class_id)
+    _ensure_user_has_access(db, user, class_id)
     chapters = list_chapters_for_class(db, class_id)
     if not chapters:
         return []
@@ -269,7 +280,7 @@ def list_class_chapters(db: Session, user: User, class_id: str) -> list[ChapterL
 
 
 def get_class_chapter(db: Session, user: User, class_id: str, chapter_id: str) -> ChapterResponse:
-    _ensure_teacher_has_access(db, user, class_id)
+    _ensure_user_has_access(db, user, class_id)
     chapter = get_chapter(db, chapter_id)
     if not chapter or str(chapter.class_id) != class_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chapter not found")

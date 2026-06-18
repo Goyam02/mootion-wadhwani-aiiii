@@ -22,6 +22,7 @@ import {
   resetAllTasks, 
   setTeacherAssignedNew 
 } from '../data/taskStore';
+import { api } from '../lib/api';
 
 export function TeacherDashboardPage() {
   const navigate = useNavigate();
@@ -30,6 +31,7 @@ export function TeacherDashboardPage() {
   const [profile, setProfile] = useState<any>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [copiedToast, setCopiedToast] = useState<string | null>(null);
+  const [classes, setClasses] = useState<any[]>([]);
 
   useEffect(() => {
     const data = localStorage.getItem('mootion_teacher_setup');
@@ -38,7 +40,33 @@ export function TeacherDashboardPage() {
     }
   }, []);
 
-  const teacherName = profile?.teacherId ? `Mrs. Poorvika` : "Mrs. Poorvika";
+  useEffect(() => {
+    const fetchClasses = async () => {
+      try {
+        const data = await api.get('/teachers/classes');
+        setClasses(data);
+      } catch (err: any) {
+        console.error("Failed to fetch teacher classes:", err);
+        if (err.status === 403 || err.status === 401) {
+          localStorage.removeItem('mootion_access_token');
+          localStorage.removeItem('mootion_refresh_token');
+          navigate('/teacher/login');
+        }
+      }
+    };
+    fetchClasses();
+  }, []);
+
+  const getGradeCodesString = (gradeName: string) => {
+    const cleanGrade = gradeName.replace(/\D/g, '');
+    const matched = classes.filter(c => c.grade === cleanGrade || c.grade === gradeName);
+    if (matched.length > 0) {
+      return matched.map(c => c.class_code).join(' / ');
+    }
+    return 'Loading...';
+  };
+
+  const teacherName = profile?.teacherId ? `Teacher` : "Teacher";
 
   // Determine user-selected grades and subjects from onboarding or fallback
   const rawGrades = profile?.selectedGrades || [];
@@ -94,33 +122,9 @@ export function TeacherDashboardPage() {
     return { concept: "Asexual vegetative reproduction", accuracy: 42 };
   };
 
-  // Generate unique stable 5-alphabet code based on grade
-  const academicCodes = React.useMemo(() => {
-    const codes: Record<string, string> = {};
-    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    
-    const getCode = (key: string) => {
-      let hash = 0;
-      for (let i = 0; i < key.length; i++) {
-        hash = key.charCodeAt(i) + ((hash << 5) - hash);
-      }
-      let code = '';
-      for (let i = 0; i < 5; i++) {
-        const index = Math.abs((hash + i * 53 + 127) % alphabet.length);
-        code += alphabet[index];
-      }
-      return code;
-    };
-
-    grades.forEach((grade: string) => {
-      codes[grade] = getCode(grade);
-    });
-
-    return codes;
-  }, [grades]);
-
   const handleCopyInviteCode = (e: React.MouseEvent, code: string, cardId: string) => {
     e.stopPropagation(); // Stop navigation click
+    if (code === 'Loading...') return;
     navigator.clipboard.writeText(code);
     setCopiedId(cardId);
     setCopiedToast(`Class code ${code} copied!`);
@@ -233,7 +237,7 @@ export function TeacherDashboardPage() {
 
             <div className="flex flex-col gap-8 flex-1">
               {sortedGrades.map((grade) => {
-                const classCode = academicCodes[grade] || 'ABCDE';
+                const classCode = getGradeCodesString(grade);
                 const isClassCopied = copiedId === grade;
 
                 return (
@@ -249,18 +253,8 @@ export function TeacherDashboardPage() {
                       <div className="flex items-center flex-wrap gap-2.5">
                         {/* Copyable invitation key for the whole class */}
                         <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigator.clipboard.writeText(classCode);
-                            setCopiedId(grade);
-                            setCopiedToast(`Class code ${classCode} copied!`);
-                            setTimeout(() => {
-                              setCopiedId(null);
-                            }, 2000);
-                            setTimeout(() => {
-                              setCopiedToast(null);
-                            }, 3500);
-                          }}
+                          type="button"
+                          onClick={(e) => handleCopyInviteCode(e, classCode, grade)}
                           className={`flex items-center gap-1.5 px-3 py-1 rounded-full border-[2px] text-[11px] font-extrabold tracking-wide transition-all ${
                             isClassCopied 
                               ? 'bg-[#1800ad] text-[#f6f4ee] border-[#1800ad] scale-102' 

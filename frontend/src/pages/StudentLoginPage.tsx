@@ -1,10 +1,16 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Eye } from '../components/Eye';
+import { api } from '../lib/api';
 
 export function StudentLoginPage() {
   const navigate = useNavigate();
+  const [studentId, setStudentId] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
   const mousePosRef = useRef({ 
     x: typeof window !== 'undefined' ? window.innerWidth / 2 : 0, 
     y: typeof window !== 'undefined' ? window.innerHeight / 2 : 0 
@@ -22,6 +28,35 @@ export function StudentLoginPage() {
     window.addEventListener('mousemove', handleMouseMove);
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, []);
+
+  const handleStart = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!studentId.trim() || !password.trim()) return;
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const data = await api.post('/auth/login', {
+        login_id: studentId,
+        password: password
+      });
+
+      localStorage.setItem('mootion_access_token', data.access_token);
+      localStorage.setItem('mootion_refresh_token', data.refresh_token);
+
+      navigate('/student/home');
+    } catch (err: any) {
+      console.error(err);
+      if (err.status === 401) {
+        setError("Incorrect ID or password");
+      } else {
+        setError("Could not connect to server");
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="w-full h-[100dvh] bg-[#f6f4ee] overflow-hidden relative flex items-center justify-center">
@@ -55,23 +90,38 @@ export function StudentLoginPage() {
       >
         <h2 className="text-center tracking-normal sm:tracking-[0.1em] md:tracking-[0.15em] text-[#2c2c2c] uppercase text-[10px] min-[320px]:text-[11px] min-[360px]:text-[12px] sm:text-[14px] md:text-base font-medium whitespace-nowrap">Login</h2>
         
-        <div className="flex flex-col flex-1 pb-4">
+        <form onSubmit={handleStart} className="flex flex-col flex-1 pb-4">
           <div className="flex flex-col gap-3 md:gap-4 flex-1 justify-center relative mt-2">
+            {error && (
+              <div className="text-red-600 text-xs font-bold text-center -mt-1 mb-2">
+                {error}
+              </div>
+            )}
             <input 
               type="text" 
               placeholder="Student ID" 
-              className="w-full px-6 py-2 md:py-3 text-[13px] sm:text-sm md:text-base bg-transparent border border-[#1800ad] rounded-full text-center text-[#2c2c2c] placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#1800ad]"
+              value={studentId}
+              onChange={(e) => setStudentId(e.target.value)}
+              disabled={isLoading}
+              className="w-full px-6 py-2 md:py-3 text-[13px] sm:text-sm md:text-base bg-transparent border border-[#1800ad] rounded-full text-center text-[#2c2c2c] placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#1800ad] font-montserrat"
             />
             <input 
               type="password" 
               placeholder="Password" 
-              className="w-full px-6 py-2 md:py-3 text-[13px] sm:text-sm md:text-base bg-transparent border border-[#1800ad] rounded-full text-center text-[#2c2c2c] placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#1800ad]"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={isLoading}
+              className="w-full px-6 py-2 md:py-3 text-[13px] sm:text-sm md:text-base bg-transparent border border-[#1800ad] rounded-full text-center text-[#2c2c2c] placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#1800ad] font-montserrat"
             />
-            <button onClick={() => navigate('/student/home')} className="w-full px-6 py-2 md:py-3 mt-2 bg-[#1800ad] border-2 border-[#1800ad] hover:bg-[#f6f4ee] text-[#f6f4ee] hover:text-[#1800ad] text-[13px] sm:text-sm md:text-base font-medium transition-all duration-300 rounded-full">
-              Start
+            <button 
+              type="submit"
+              disabled={isLoading || !studentId.trim() || !password.trim()}
+              className="w-full px-6 py-2 md:py-3 mt-2 bg-[#1800ad] border-2 border-[#1800ad] hover:bg-[#f6f4ee] text-[#f6f4ee] hover:text-[#1800ad] text-[13px] sm:text-sm md:text-base font-medium transition-all duration-300 rounded-full disabled:opacity-50"
+            >
+              {isLoading ? "Starting..." : "Start"}
             </button>
           </div>
-        </div>
+        </form>
 
         <div className="mt-auto">
           <div className="flex items-center justify-center w-full relative mb-4 -mt-2 md:-mt-4">
@@ -79,7 +129,11 @@ export function StudentLoginPage() {
             <span className="relative z-10 bg-[#f6f4ee] px-3 tracking-wide text-[#2c2c2c] text-xs font-medium lowercase">or</span>
           </div>
 
-          <button onClick={() => navigate('/signup/student')} className="w-full px-6 py-2 md:py-3 bg-[#1800ad] border-2 border-[#1800ad] hover:bg-[#f6f4ee] text-[#f6f4ee] hover:text-[#1800ad] text-[13px] sm:text-sm md:text-base font-medium transition-all duration-300 rounded-full">
+          <button 
+            type="button"
+            onClick={() => navigate('/signup/student')} 
+            className="w-full px-6 py-2 md:py-3 bg-[#1800ad] border-2 border-[#1800ad] hover:bg-[#f6f4ee] text-[#f6f4ee] hover:text-[#1800ad] text-[13px] sm:text-sm md:text-base font-medium transition-all duration-300 rounded-full"
+          >
             Set up your account
           </button>
         </div>

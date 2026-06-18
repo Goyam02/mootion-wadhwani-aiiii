@@ -1,10 +1,16 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Eye } from '../components/Eye';
+import { api } from '../lib/api';
 
 export function TeacherLoginPage() {
   const navigate = useNavigate();
+  const [teacherId, setTeacherId] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
   const mousePosRef = useRef({ 
     x: typeof window !== 'undefined' ? window.innerWidth / 2 : 0, 
     y: typeof window !== 'undefined' ? window.innerHeight / 2 : 0 
@@ -23,9 +29,61 @@ export function TeacherLoginPage() {
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, []);
 
-  const handleStart = () => {
-    // Navigate to Teacher dashboard /teacher/home
-    navigate('/teacher/home');
+  const handleStart = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!teacherId.trim() || !password.trim()) return;
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const data = await api.post('/auth/login', {
+        login_id: teacherId,
+        password: password
+      });
+
+      localStorage.setItem('mootion_access_token', data.access_token);
+      localStorage.setItem('mootion_refresh_token', data.refresh_token);
+
+      try {
+        const teacherProfile = await api.get('/teachers/me');
+        const classes = await api.get('/teachers/classes');
+        const grades = Array.from(new Set(classes.map((c: any) => c.grade.startsWith('Class ') ? c.grade : `Class ${c.grade}`)));
+        const subjects = Array.from(new Set(classes.map((c: any) => c.subject)));
+        
+        localStorage.setItem('mootion_teacher_setup', JSON.stringify({
+          schoolName: "Default School",
+          teacherId: teacherProfile.login_id,
+          selectedGrades: grades,
+          selectedSubjects: subjects,
+          selectedLanguage: teacherProfile.preferred_language || "English",
+          ncertLoaded: true,
+          setupAt: new Date().toISOString()
+        }));
+      } catch (profileErr) {
+        console.error("Failed to sync profile:", profileErr);
+        localStorage.setItem('mootion_teacher_setup', JSON.stringify({
+          schoolName: "Default School",
+          teacherId: teacherId,
+          selectedGrades: ['Class 8'],
+          selectedSubjects: ['Physics'],
+          selectedLanguage: 'English',
+          ncertLoaded: true,
+          setupAt: new Date().toISOString()
+        }));
+      }
+
+      navigate('/teacher/home');
+    } catch (err: any) {
+      console.error(err);
+      if (err.status === 401) {
+        setError("Incorrect ID or password");
+      } else {
+        setError("Could not connect to server");
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -60,23 +118,38 @@ export function TeacherLoginPage() {
       >
         <h2 className="text-center tracking-normal sm:tracking-[0.1em] md:tracking-[0.15em] text-[#2c2c2c] uppercase text-[10px] min-[320px]:text-[11px] min-[360px]:text-[12px] sm:text-[14px] md:text-base font-black whitespace-nowrap">Teacher Login</h2>
         
-        <div className="flex flex-col flex-1 pb-4">
+        <form onSubmit={handleStart} className="flex flex-col flex-1 pb-4">
           <div className="flex flex-col gap-3 md:gap-4 flex-1 justify-center relative mt-2">
+            {error && (
+              <div className="text-red-600 text-xs font-bold text-center -mt-1 mb-2">
+                {error}
+              </div>
+            )}
             <input 
               type="text" 
               placeholder="Teacher ID" 
+              value={teacherId}
+              onChange={(e) => setTeacherId(e.target.value)}
+              disabled={isLoading}
               className="w-full px-6 py-2 md:py-3 text-[13px] sm:text-sm md:text-base bg-transparent border border-[#1800ad] rounded-full text-center text-[#2c2c2c] placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#1800ad]"
             />
             <input 
               type="password" 
               placeholder="Password" 
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={isLoading}
               className="w-full px-6 py-2 md:py-3 text-[13px] sm:text-sm md:text-base bg-transparent border border-[#1800ad] rounded-full text-center text-[#2c2c2c] placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#1800ad]"
             />
-            <button onClick={handleStart} className="w-full px-6 py-2 md:py-3 mt-2 bg-[#1800ad] border-2 border-[#1800ad] hover:bg-[#f6f4ee] text-[#f6f4ee] hover:text-[#1800ad] text-[13px] sm:text-sm md:text-base font-bold transition-all duration-300 rounded-full">
-              Start
+            <button 
+              type="submit"
+              disabled={isLoading || !teacherId.trim() || !password.trim()}
+              className="w-full px-6 py-2 md:py-3 mt-2 bg-[#1800ad] border-2 border-[#1800ad] hover:bg-[#f6f4ee] text-[#f6f4ee] hover:text-[#1800ad] text-[13px] sm:text-sm md:text-base font-bold transition-all duration-300 rounded-full disabled:opacity-50"
+            >
+              {isLoading ? "Starting..." : "Start"}
             </button>
           </div>
-        </div>
+        </form>
 
         <div className="mt-auto">
           <div className="flex items-center justify-center w-full relative mb-4 -mt-2 md:-mt-4">
@@ -84,7 +157,11 @@ export function TeacherLoginPage() {
             <span className="relative z-10 bg-[#f6f4ee] px-3 tracking-wide text-[#2c2c2c] text-xs font-semibold lowercase">or</span>
           </div>
 
-          <button onClick={() => navigate('/teacher/onboarding')} className="w-full px-6 py-2 md:py-3 bg-[#1800ad] border-2 border-[#1800ad] hover:bg-[#f6f4ee] text-[#f6f4ee] hover:text-[#1800ad] text-[13px] sm:text-sm md:text-base font-bold transition-all duration-300 rounded-full">
+          <button 
+            type="button"
+            onClick={() => navigate('/teacher/onboarding')} 
+            className="w-full px-6 py-2 md:py-3 bg-[#1800ad] border-2 border-[#1800ad] hover:bg-[#f6f4ee] text-[#f6f4ee] hover:text-[#1800ad] text-[13px] sm:text-sm md:text-base font-bold transition-all duration-300 rounded-full"
+          >
             Set up your account
           </button>
         </div>

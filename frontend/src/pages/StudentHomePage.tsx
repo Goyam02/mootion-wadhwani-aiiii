@@ -9,11 +9,11 @@ import {
   Flame,
   ChevronLeft, 
   ChevronRight,
-  HelpCircle,
   Menu,
   X,
   Play,
-  Sparkles
+  Sparkles,
+  UserPlus
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
@@ -27,6 +27,7 @@ import {
   resetAllTasks, 
   setTeacherAssignedNew 
 } from '../data/taskStore';
+import { api } from '../lib/api';
 
 // Fake Calendar Data Generator for GitHub-style graph (Month view)
 const generateCalendarData = () => {
@@ -68,8 +69,105 @@ export function StudentHomePage() {
   const [quota, setQuota] = useState(() => getPlaygroundQuota());
   const [teacherAssigned, setTeacherAssigned] = useState(() => getTeacherAssignedNew());
 
+  // Classes states
+  const [classes, setClasses] = useState<any[]>([]);
+  const [isLoadingClasses, setIsLoadingClasses] = useState(true);
+
+  // Join Class Modal State
+  const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
+  const [joinClassCodes, setJoinClassCodes] = useState<{ value: string; error: string | null }[]>([
+    { value: '', error: null }
+  ]);
+  const [isJoining, setIsJoining] = useState(false);
+
+  // Chapters Modal State
+  const [selectedClass, setSelectedClass] = useState<any | null>(null);
+  const [classChapters, setClassChapters] = useState<any[]>([]);
+  const [isLoadingChapters, setIsLoadingChapters] = useState(false);
+
   // Determine if student has completed all assigned tasks
   const isPlaygroundActive = !teacherAssigned && !localTasks.some(t => t.status !== 'Completed');
+
+  const fetchClasses = async () => {
+    try {
+      const data = await api.get('/students/classes');
+      setClasses(data);
+    } catch (err: any) {
+      console.error("Failed to fetch student classes:", err);
+      if (err.status === 403 || err.status === 401) {
+        localStorage.removeItem('mootion_access_token');
+        localStorage.removeItem('mootion_refresh_token');
+        navigate('/login/student');
+      }
+    } finally {
+      setIsLoadingClasses(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchClasses();
+  }, []);
+
+  useEffect(() => {
+    if (!selectedClass) return;
+    const fetchChapters = async () => {
+      setIsLoadingChapters(true);
+      try {
+        const data = await api.get(`/teachers/classes/${selectedClass.class_id}/chapters`);
+        const sorted = [...data].sort((a: any, b: any) => a.sequence_number - b.sequence_number);
+        setClassChapters(sorted);
+      } catch (err) {
+        console.error("Failed to fetch class chapters:", err);
+        setClassChapters([]);
+      } finally {
+        setIsLoadingChapters(false);
+      }
+    };
+    fetchChapters();
+  }, [selectedClass]);
+
+  const addClassCodeField = () => {
+    setJoinClassCodes([...joinClassCodes, { value: '', error: null }]);
+  };
+
+  const handleClassCodeChange = (index: number, val: string) => {
+    const next = [...joinClassCodes];
+    next[index] = { value: val, error: null };
+    setJoinClassCodes(next);
+  };
+
+  const handleJoinClasses = async () => {
+    setIsJoining(true);
+    let hasError = false;
+    const nextCodes = [...joinClassCodes];
+
+    for (let i = 0; i < nextCodes.length; i++) {
+      const item = nextCodes[i];
+      if (item.value.trim() !== '') {
+        try {
+          await api.post('/students/join-class', {
+            class_code: item.value.trim()
+          });
+        } catch (err: any) {
+          console.error("Error joining class:", err);
+          hasError = true;
+          nextCodes[i] = {
+            ...item,
+            error: "Class not found — check the code with your teacher"
+          };
+        }
+      }
+    }
+
+    setJoinClassCodes(nextCodes);
+    await fetchClasses();
+    setIsJoining(false);
+
+    if (!hasError) {
+      setIsJoinModalOpen(false);
+      setJoinClassCodes([{ value: '', error: null }]);
+    }
+  };
 
   const getCellColor = (value: number, date: Date | null) => {
     if (date) {
@@ -84,31 +182,11 @@ export function StudentHomePage() {
     return 'bg-[#1800ad]'; // full blue
   };
 
-  const handleSimulateCompleteAll = () => {
-    const updated = completeAllTasks();
-    setLocalTasks(updated);
-    setTeacherAssigned(false);
-    setTeacherAssignedNew(false);
-  };
-
-  const handleSimulateReset = () => {
-    const updated = resetAllTasks();
-    setLocalTasks(updated);
-    setTeacherAssigned(false);
-    setTeacherAssignedNew(false);
-  };
-
-  const handleSimulateTeacherAssign = () => {
-    const nextVal = !teacherAssigned;
-    setTeacherAssigned(nextVal);
-    setTeacherAssignedNew(nextVal);
-  };
-
   return (
     <div className="flex flex-1 w-full h-[100dvh] bg-[#1800ad] font-montserrat text-[#1800ad] overflow-hidden relative">
       
       {/* Mobile Bottom Navigation Bar */}
-      <nav className="md:hidden fixed bottom-4 left-4 right-4 bg-[#1800ad] px-8 py-2.5 flex justify-between items-center z-40 rounded-full shadow-[0_10px_40px_rgba(24,0,173,0.25)] border-[2px] border-[#f6f4ee]">
+      <nav className="md:hidden fixed bottom-4 left-4 right-4 bg-[#1800ad] px-8 py-2.5 flex justify-between items-center z-45 rounded-full shadow-[0_10px_40px_rgba(24,0,173,0.25)] border-[2px] border-[#f6f4ee]">
         <NavItem icon={<LayoutDashboard size={24} />} active onClick={() => navigate('/student/home')} />
         <NavItem icon={<CheckSquare size={24} />} onClick={() => navigate('/student/tasks')} />
         <NavItem icon={<Compass size={24} />} onClick={() => navigate('/student/explore')} />
@@ -117,6 +195,15 @@ export function StudentHomePage() {
 
       {/* ChatBot FAB */}
       <ChatbotFab />
+
+      {/* Persistent Join Class FAB */}
+      <button 
+        onClick={() => setIsJoinModalOpen(true)}
+        className="fixed bottom-28 md:bottom-6 left-4 md:left-24 lg:left-28 xl:left-32 z-40 w-14 h-14 rounded-full border-4 border-[#f6f4ee] bg-[#1800ad] shadow-xl flex items-center justify-center hover:scale-105 hover:shadow-2xl transition-all text-[#f6f4ee] font-black text-2xl"
+        title="Join a class"
+      >
+        <UserPlus size={22} className="stroke-[2.5]" />
+      </button>
 
       {/* Sidebar - Desktop */}
       <aside className="hidden md:flex w-[80px] lg:w-[100px] flex-col items-center justify-between py-8 fixed top-0 bottom-0 left-0 h-full shrink-0 bg-[#1800ad] text-[#f6f4ee] z-30">
@@ -170,6 +257,50 @@ export function StudentHomePage() {
             />
           </div>
         </header>
+
+        {/* Section: My Classes */}
+        <section className="mb-8 w-full font-montserrat">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-[#1800ad]">My Classes</h2>
+            <button 
+              onClick={() => setIsJoinModalOpen(true)}
+              className="px-5 py-2 bg-[#1800ad] text-[#f6f4ee] border-2 border-[#1800ad] rounded-full text-xs font-extrabold hover:bg-[#f6f4ee] hover:text-[#1800ad] transition-all shadow-md"
+            >
+              + Join a class
+            </button>
+          </div>
+          
+          {isLoadingClasses ? (
+            <div className="py-8 flex items-center justify-center">
+              <div className="w-8 h-8 border-4 border-[#1800ad]/20 border-t-[#1800ad] rounded-full animate-spin"></div>
+            </div>
+          ) : classes.length === 0 ? (
+            <div className="bg-[#f6f4ee] border-2 border-dashed border-[#1800ad]/20 rounded-[32px] p-8 text-center text-[#1800ad]/60 font-semibold text-sm">
+              You haven't joined any classes yet. Click "+ Join a class" to get started!
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+              {classes.map((cls) => (
+                <motion.div 
+                  key={cls.class_id}
+                  whileHover={{ y: -4 }}
+                  onClick={() => setSelectedClass(cls)}
+                  className="p-5 rounded-[28px] border-2 border-[#1800ad]/20 bg-[#f6f4ee] text-[#1800ad] flex flex-col justify-between cursor-pointer hover:border-[#1800ad] transition-all group shadow-sm min-h-[140px]"
+                >
+                  <div>
+                    <span className="text-[10px] font-bold opacity-60 uppercase tracking-wider block mb-1">{cls.subject}</span>
+                    <h3 className="text-lg font-black group-hover:text-[#1800ad] leading-tight">{cls.display_name}</h3>
+                  </div>
+                  <div className="flex items-center justify-between mt-4 pt-3 border-t border-[#1800ad]/10 text-xs font-bold opacity-75">
+                    <span>Grade {cls.grade}</span>
+                    <span className="bg-[#1800ad]/10 px-2.5 py-1 rounded-full font-mono">{cls.class_code}</span>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </section>
+
         <div className="flex flex-col xl:grid xl:grid-cols-[1fr_380px] gap-8 lg:gap-10">
           
           {/* Section: Up Next Task */}
@@ -386,8 +517,6 @@ export function StudentHomePage() {
               </div>
             </div>
 
-            {/* Simulated Workspace Toggles was removed per user request */}
-
           </aside>
 
           {/* Section: My Progress Strip */}
@@ -438,18 +567,176 @@ export function StudentHomePage() {
         </div>
       </main>
 
+      {/* MODAL: Join Classes */}
+      <AnimatePresence>
+        {isJoinModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-[#f6f4ee] border-2 border-[#1800ad] rounded-[32px] shadow-2xl p-6 md:p-8 max-w-md w-full font-montserrat text-[#1800ad] flex flex-col gap-4 relative max-h-[85vh] overflow-y-auto custom-scrollbar"
+            >
+              <button 
+                onClick={() => setIsJoinModalOpen(false)}
+                className="absolute top-5 right-5 hover:opacity-75 transition-opacity"
+              >
+                <X size={20} />
+              </button>
+
+              <h2 className="text-xl md:text-2xl font-black text-center uppercase tracking-wide">Join Your Classes</h2>
+              <p className="text-xs text-[#1800ad]/70 font-semibold text-center -mt-2">Enter the class codes provided by your teacher</p>
+
+              <div className="flex flex-col gap-2.5 mt-2">
+                {joinClassCodes.map((codeItem, index) => (
+                  <div key={index} className="flex flex-col gap-1 w-full shrink-0">
+                    <input 
+                      type="text" 
+                      placeholder={`Class Code ${index + 1}`}
+                      value={codeItem.value}
+                      onChange={(e) => handleClassCodeChange(index, e.target.value)}
+                      disabled={isJoining}
+                      className="w-full px-6 py-2.5 text-sm bg-transparent border border-[#1800ad] rounded-full text-center text-[#2c2c2c] placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#1800ad] font-montserrat"
+                    />
+                    {codeItem.error && (
+                      <span className="text-[10px] text-red-600 font-bold text-center px-2">
+                        {codeItem.error}
+                      </span>
+                    )}
+                  </div>
+                ))}
+                
+                <button 
+                  type="button"
+                  onClick={addClassCodeField}
+                  disabled={isJoining}
+                  className="w-full py-2 border-2 border-dashed border-[#1800ad]/30 text-[#1800ad] hover:border-[#1800ad] rounded-full font-bold text-xs transition-colors flex items-center justify-center gap-1 mt-1 shrink-0"
+                >
+                  + Add another class
+                </button>
+              </div>
+
+              <div className="flex gap-3 mt-4">
+                <button 
+                  type="button"
+                  onClick={() => setIsJoinModalOpen(false)}
+                  className="w-1/2 py-3 bg-transparent border-2 border-[#1800ad] hover:bg-[#1800ad]/5 font-bold rounded-full text-center text-sm"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="button"
+                  onClick={handleJoinClasses}
+                  disabled={isJoining}
+                  className="w-1/2 py-3 bg-[#1800ad] border-2 border-[#1800ad] hover:bg-[#f6f4ee] text-[#f6f4ee] hover:text-[#1800ad] font-bold rounded-full text-center text-sm disabled:opacity-50"
+                >
+                  {isJoining ? 'Joining...' : 'Join Classes'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* MODAL: Class Chapters List */}
+      <AnimatePresence>
+        {selectedClass && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-[#f6f4ee] border-2 border-[#1800ad] rounded-[32px] shadow-2xl p-6 md:p-8 max-w-lg w-full font-montserrat text-[#1800ad] flex flex-col gap-4 relative max-h-[85vh]"
+            >
+              <button 
+                onClick={() => setSelectedClass(null)}
+                className="absolute top-5 right-5 hover:opacity-75 transition-opacity"
+              >
+                <X size={20} />
+              </button>
+
+              <div>
+                <span className="text-[10px] font-bold opacity-60 uppercase tracking-wider block mb-0.5">{selectedClass.subject} • Grade {selectedClass.grade}</span>
+                <h2 className="text-xl md:text-2xl font-black">{selectedClass.display_name}</h2>
+              </div>
+
+              <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-3.5 my-2 pr-1 min-h-[180px]">
+                {isLoadingChapters ? (
+                  <div className="m-auto flex flex-col items-center gap-3 py-8">
+                    <div className="w-8 h-8 border-4 border-[#1800ad]/20 border-t-[#1800ad] rounded-full animate-spin"></div>
+                    <span className="text-xs font-bold text-[#1800ad]/60 animate-pulse">Loading chapters...</span>
+                  </div>
+                ) : classChapters.length === 0 ? (
+                  <div className="m-auto text-center py-8 text-[#1800ad]/60 font-semibold text-sm leading-relaxed max-w-[80%]">
+                     Your teacher hasn't set up this class yet
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-2">
+                    {classChapters.map((chapter, index) => (
+                      <motion.div
+                        key={chapter.chapter_id}
+                        initial={{ opacity: 0, scale: 0.97 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.2, delay: index * 0.03 }}
+                        className="h-[148px] bg-[#1800ad] text-[#f6f4ee] p-5 rounded-[22px] border-[2px] border-[#1800ad] flex flex-col justify-between relative overflow-hidden"
+                      >
+                        {/* Compact Top Header */}
+                        <div className="flex justify-between items-center">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-[#f6f4ee]/80">
+                            Chapter {chapter.sequence_number}
+                          </span>
+                          <span className="text-[11px] font-semibold text-[#f6f4ee]/90 flex items-center gap-1 bg-[#f6f4ee]/15 px-2 py-0.5 rounded-full">
+                            {chapter.asset_count} Assets
+                          </span>
+                        </div>
+
+                        {/* Title - Elegant Montserrat */}
+                        <div className="my-1.5">
+                          <h3 className="text-[14px] sm:text-[15px] font-extrabold leading-snug tracking-tight text-[#f6f4ee] line-clamp-2">
+                            {chapter.title}
+                          </h3>
+                        </div>
+
+                        {/* Compact Footer Status */}
+                        <div className="border-t border-[#f6f4ee]/15 pt-2 flex items-center justify-between text-[10px] font-bold">
+                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
+                            chapter.status === 'data_ready' ? 'bg-emerald-400/20 text-emerald-300 border border-emerald-400/30' :
+                            chapter.status === 'active' ? 'bg-blue-400/20 text-blue-300 border border-blue-400/30' :
+                            chapter.status === 'generated' ? 'bg-amber-400/20 text-amber-300 border border-amber-400/30' :
+                            'bg-[#f6f4ee]/15 text-[#f6f4ee]/80 border border-[#f6f4ee]/20'
+                          }`}>
+                            {chapter.status}
+                          </span>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-auto">
+                <button 
+                  onClick={() => setSelectedClass(null)}
+                  className="w-full py-3 bg-[#1800ad] border-2 border-[#1800ad] hover:bg-[#f6f4ee] text-[#f6f4ee] hover:text-[#1800ad] font-bold rounded-full text-center text-sm transition-all"
+                >
+                  Close
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }
 
 // ------ Helper Components ------
 
-// ChatbotFab and NavItem are now imported from components
-
 function ProgressCard({ subject, score }: { subject: string, score: number }) {
   return (
     <motion.div whileHover={{ y: -2 }} className="p-4 md:p-5 rounded-3xl border-2 border-[#1800ad]/20 bg-[#f6f4ee] text-[#1800ad] flex flex-col gap-4 cursor-pointer hover:border-[#1800ad] transition-colors group shadow-sm">
-      <span className="text-sm font-bold opacity-70 uppercase tracking-wider">{subject}</span>
+      <span className="text-xs font-bold opacity-70 uppercase tracking-wider">{subject}</span>
       <div className="flex items-end justify-between mt-auto">
         <span className="text-4xl font-black group-hover:scale-105 origin-bottom-left transition-transform duration-300">
           {score}<span className="text-xl opacity-60 ml-0.5">%</span>

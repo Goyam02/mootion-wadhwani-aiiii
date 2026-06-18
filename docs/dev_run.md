@@ -1,6 +1,5 @@
 1. Start services
 - brew services start redis
-- brew services start minio or minio server ~/minio-data --console-address ":9000"
 - uvicorn app.main:app --reload --host 0.0.0.0 --port 8001 in animation-engine/
 - uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 in backend/
 - python -m app.services.media_worker in a second backend/ terminal
