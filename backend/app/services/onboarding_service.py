@@ -35,7 +35,7 @@ from app.schemas.onboarding import (
 )
 
 
-ALLOWED_SUBJECTS = {"Physics", "Mathematics", "Chemistry", "Biology", "Computer Science"}
+ALLOWED_SUBJECTS = {"Physics", "Mathematics", "Chemistry", "Biology", "Computer Science", "Science"}
 
 
 def _generate_code() -> str:

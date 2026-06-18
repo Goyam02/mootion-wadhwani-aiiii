@@ -43,19 +43,57 @@ export function TeacherOnboardingPage() {
     'Class 5', 'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10', 'Class 11', 'Class 12'
   ];
 
-  const subjectOptions = [
-    'Physics', 'Chemistry', 'Mathematics', 'Biology'
-  ];
+  const [showExclusiveNote, setShowExclusiveNote] = useState(false);
+
+  const getSubjectOptions = () => {
+    const hasGroup1 = selectedGrades.some(g => ['Class 5', 'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10'].includes(g));
+    const hasGroup2 = selectedGrades.some(g => ['Class 11', 'Class 12'].includes(g));
+
+    if (hasGroup1) {
+      return ['Science', 'Mathematics'];
+    }
+    if (hasGroup2) {
+      return ['Physics', 'Chemistry', 'Mathematics', 'Biology'];
+    }
+    return ['Physics', 'Chemistry', 'Mathematics', 'Biology'];
+  };
+
+  const subjectOptions = getSubjectOptions();
 
   const languageOptions = [
     'English', 'Hindi', 'Gujarati', 'Marathi'
   ];
 
+  useEffect(() => {
+    const valid = getSubjectOptions();
+    setSelectedSubjects(prev => prev.filter(s => valid.includes(s)));
+  }, [selectedGrades]);
+
   const toggleGrade = (grade: string) => {
-    if (selectedGrades.includes(grade)) {
-      setSelectedGrades(selectedGrades.filter(g => g !== grade));
+    const isGroup1 = ['Class 5', 'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10'].includes(grade);
+    const isSelecting = !selectedGrades.includes(grade);
+
+    if (isSelecting) {
+      const hasGroup1 = selectedGrades.some(g => ['Class 5', 'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10'].includes(g));
+      const hasGroup2 = selectedGrades.some(g => ['Class 11', 'Class 12'].includes(g));
+
+      if (isGroup1 && hasGroup2) {
+        // Switch to Group 1, clear Group 2
+        setSelectedGrades([grade]);
+        setShowExclusiveNote(true);
+      } else if (!isGroup1 && hasGroup1) {
+        // Switch to Group 2, clear Group 1
+        setSelectedGrades([grade]);
+        setShowExclusiveNote(true);
+      } else {
+        setSelectedGrades([...selectedGrades, grade]);
+      }
     } else {
-      setSelectedGrades([...selectedGrades, grade]);
+      const nextGrades = selectedGrades.filter(g => g !== grade);
+      setSelectedGrades(nextGrades);
+      if (nextGrades.length === 0) {
+        setShowExclusiveNote(false);
+      }
     }
   };
 
@@ -138,12 +176,22 @@ export function TeacherOnboardingPage() {
       navigate('/teacher/home');
     } catch (err: any) {
       console.error(err);
+      setStep(1);
       if (err.status === 409) {
         setError("This Teacher ID is already taken");
       } else if (err.status === 401) {
         setError("Incorrect ID or password");
+      } else if (err.status === 422) {
+        if (err.detail && Array.isArray(err.detail)) {
+          const msgs = err.detail.map((d: any) => d.msg).join(", ");
+          setError(`Validation Error: ${msgs}`);
+        } else if (err.detail && typeof err.detail === 'string') {
+          setError(err.detail);
+        } else {
+          setError("Invalid input data - check fields are correct");
+        }
       } else {
-        setError("Could not connect to server");
+        setError(err.detail || "Could not connect to server");
       }
     } finally {
       setIsLoadingChapters(false);
@@ -225,7 +273,7 @@ export function TeacherOnboardingPage() {
 
                   <input 
                     type="text" 
-                    placeholder="Teacher ID"
+                    placeholder="Teacher ID (min 3 chars)"
                     value={teacherId}
                     onChange={(e) => setTeacherId(e.target.value)}
                     className="w-full px-6 py-2 md:py-2.5 text-[13px] sm:text-sm md:text-base bg-transparent border border-[#1800ad] rounded-full text-center text-[#2c2c2c] placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#1800ad]"
@@ -256,7 +304,7 @@ export function TeacherOnboardingPage() {
                   <button 
                     type="button"
                     onClick={handleNext}
-                    disabled={!schoolName.trim() || !fullName.trim() || !teacherId.trim() || password.length < 8}
+                    disabled={!schoolName.trim() || !fullName.trim() || teacherId.trim().length < 3 || password.length < 8}
                     className="flex-1 px-6 py-2 md:py-3 bg-[#1800ad] border-2 border-[#1800ad] hover:bg-[#f6f4ee] text-[#f6f4ee] hover:text-[#1800ad] text-[13px] sm:text-sm md:text-base font-bold transition-all duration-300 rounded-full flex items-center justify-center disabled:opacity-40"
                   >
                     Next
@@ -302,6 +350,12 @@ export function TeacherOnboardingPage() {
                     );
                   })}
                 </div>
+
+                {showExclusiveNote && (
+                  <p className="text-[10px] text-amber-600 font-semibold text-center mt-1 max-w-[280px] mx-auto leading-normal">
+                    Note: Middle school (Class 5–10) and high school (Class 11–12) grades are mutually exclusive. Selecting this grade has deselected your previous choices.
+                  </p>
+                )}
 
                 <div className="flex items-center justify-center w-full relative mb-3 mt-1 sm:mt-0">
                   <div className="absolute left-0 right-0 h-[2.5px] bg-[#1800ad]"></div>
