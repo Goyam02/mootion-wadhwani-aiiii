@@ -44,7 +44,7 @@ export default function App() {
 
         {/* Protected Teacher Routes */}
         <Route path="/teacher/login" element={<LoginRoute><TeacherLoginPage /></LoginRoute>} />
-        <Route path="/teacher/onboarding" element={<ProtectedRoute allowedRole="teacher"><TeacherOnboardingPage /></ProtectedRoute>} />
+        <Route path="/teacher/onboarding" element={<TeacherOnboardingPage />} />
         <Route path="/teacher/home" element={<ProtectedRoute allowedRole="teacher"><TeacherDashboardPage /></ProtectedRoute>} />
         <Route path="/teacher/class/:id" element={<ProtectedRoute allowedRole="teacher"><TeacherClassViewPage /></ProtectedRoute>} />
         <Route path="/teacher/chapter-setup/:classId/:chapterId" element={<ProtectedRoute allowedRole="teacher"><TeacherChapterSetupPage /></ProtectedRoute>} />

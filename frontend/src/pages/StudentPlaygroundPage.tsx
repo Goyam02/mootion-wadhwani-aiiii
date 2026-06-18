@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   LayoutDashboard, 
   CheckSquare, 
@@ -36,10 +36,11 @@ import {
   Layers,
   Bot,
   ArrowLeft,
-  Paperclip
+  Paperclip,
+  BookOpen
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../lib/api';
 import { 
   getStoredTasks, 
@@ -349,42 +350,140 @@ const transcribeAudioWithGemini = async (blob: Blob): Promise<string> => {
   return text.trim();
 };
 
+// ─── Helper: convert backend messages to ChatMessage ──────────────────────
+function backendMsgToChatMsg(msg: any): ChatMessage[] {
+  const msgs: ChatMessage[] = [];
+
+  if (msg.role === 'user') {
+    msgs.push({
+      id: msg.message_id,
+      sender: 'student',
+      text: msg.content,
+      timestamp: new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    });
+  } else if (msg.role === 'assistant') {
+    const assistantMsg: ChatMessage = {
+      id: msg.message_id,
+      sender: 'mootion',
+      text: msg.content,
+      timestamp: new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
+
+    // Try to parse generated_assets from asset_json
+    const assets = msg.asset_json?.generated_assets ?? [];
+    if (assets.length > 0) {
+      const asset = assets[0];
+      assistantMsg.payload = buildPayloadFromAsset(asset);
+    }
+    msgs.push(assistantMsg);
+  }
+  // Skip 'tool' role messages — they are surfaced via assistant's asset_json
+  return msgs;
+}
+
+function buildPayloadFromAsset(asset: any): ChatMessage['payload'] | undefined {
+  const type = asset.asset_type;
+  if (!type) return undefined;
+
+  if (type === 'simulation') {
+    const url = asset.external_url ?? asset.payload_json?.url ?? '';
+    return {
+      type: 'simulation',
+      title: asset.title ?? 'Simulation',
+      simulation: {
+        objectDensity: asset.payload_json?.objectDensity ?? 500,
+        fluidDensity: asset.payload_json?.fluidDensity ?? 1000,
+        objectVolume: asset.payload_json?.objectVolume ?? 0.1,
+        _phetUrl: url,
+      } as any,
+    };
+  }
+
+  if (type === 'video') {
+    return {
+      type: 'video',
+      title: asset.title ?? 'Video',
+      video: {
+        topic: asset.title ?? 'Educational Video',
+        chapters: ['Introduction', 'Core Concepts', 'Summary'],
+        storyboard: [
+          { step: 1, title: 'Introduction', description: asset.description ?? '', duration: '0:35', illustration: '🎬' },
+        ],
+      },
+    };
+  }
+
+  if (type === 'quiz') {
+    const rawQs = asset.payload_json?.questions ?? [];
+    const mappedQs = rawQs.map((q: any, i: number) => ({
+      id: i + 1,
+      question: q.question ?? `Question ${i + 1}`,
+      options: q.options ?? [],
+      correctAnswerIdx: typeof q.correctAnswer === 'number'
+        ? q.correctAnswer
+        : (q.options ?? []).indexOf(q.correctAnswer),
+      feedbackCorrect: q.explanation ?? 'Correct!',
+      feedbackIncorrect: q.explanation ?? 'Not quite — review this concept!',
+    }));
+    if (mappedQs.length === 0) return undefined;
+    return {
+      type: 'quiz',
+      title: asset.title ?? 'Quiz',
+      quiz: {
+        currentQuestionIdx: 0,
+        score: 0,
+        isCompleted: false,
+        questions: mappedQs,
+      },
+    };
+  }
+
+  if (type === 'model' || type === 'three_d_model') {
+    return {
+      type: 'universe',
+      title: asset.title ?? '3D Model',
+      universe: {
+        subject: 'Physics',
+        systemType: 'solar',
+      },
+    };
+  }
+
+  return undefined;
+}
+
 export function StudentPlaygroundPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // ─── Parse URL query params for context ─────────────────────────────────
+  const searchParams = new URLSearchParams(location.search);
+  const urlAssignmentId = searchParams.get('assignment_id');
+  const urlChapterId = searchParams.get('chapter_id');
+  const urlClassId = searchParams.get('class_id');
 
   // State Management
   const [tasks, setTasks] = useState(() => getStoredTasks());
   const [quota, setQuota] = useState(() => getPlaygroundQuota());
+  const [quotaMax, setQuotaMax] = useState(10);
   const [teacherAssigned, setTeacherAssigned] = useState(() => getTeacherAssignedNew());
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Mobile sidebar
-  const [isMobileHistoryOpen, setIsMobileHistoryOpen] = useState(false); // Mobile LHS panel
-  const [isDesktopHistoryOpen, setIsDesktopHistoryOpen] = useState(true); // Desktop LHS panel toggle
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isMobileHistoryOpen, setIsMobileHistoryOpen] = useState(false);
+  const [isDesktopHistoryOpen, setIsDesktopHistoryOpen] = useState(true);
   const [textInput, setTextInput] = useState('');
   const [isVoiceRecording, setIsVoiceRecording] = useState(false);
   const [showCommands, setShowCommands] = useState(false);
   const [commandQuery, setCommandQuery] = useState('');
-  const [chatSessions, setChatSessions] = useState<PreSavedSession[]>([
-    { id: 'sess-1', title: 'Explain electricity', lastMsg: 'Active Buoyant Forces workspace re-loaded...', timestamp: '10 mins ago' },
-    { id: 'sess-2', title: 'Projectile motion', lastMsg: 'Atomic orbits session resumed...', timestamp: '1 hour ago' },
-    { id: 'sess-3', title: 'Chemical reactions', lastMsg: 'Custom Video explanation ready...', timestamp: 'Yesterday' }
-  ]);
-  const [activeSessionId, setActiveSessionId] = useState('sess-1');
+  const [chatSessions, setChatSessions] = useState<PreSavedSession[]>([]);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [hiddenSummoners, setHiddenSummoners] = useState<string[]>([]);
+  const [isLoadingSessions, setIsLoadingSessions] = useState(true);
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const [assignmentContext, setAssignmentContext] = useState<any>(null);
 
-  // Conversation state
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: 'msg-s1-1',
-      sender: 'mootion',
-      text: 'Active Buoyant Forces workspace re-loaded. Click the interactive simulation below to test block displacement!',
-      timestamp: 'Just now',
-      payload: {
-        type: 'simulation',
-        title: 'Displacement Lab Sandbox',
-        simulation: { objectDensity: 300, fluidDensity: 1000, objectVolume: 0.12 }
-      }
-    }
-  ]);
+  // Conversation state — starts empty, populated from API
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<HTMLInputElement>(null);
@@ -875,6 +974,124 @@ export function StudentPlaygroundPage() {
     loadStudentData();
   }, []);
 
+  // ─── Load quotas from backend ──────────────────────────────────────────────
+  useEffect(() => {
+    api.get('/students/quotas').then((q: any) => {
+      const used = q.playground_items_used_week ?? q.playground_items_used ?? 0;
+      const max = q.playground_items_max ?? 10;
+      setQuota(used);
+      setQuotaMax(max);
+    }).catch(() => {});
+  }, []);
+
+  // ─── Load chat sessions from backend ──────────────────────────────────────
+  const loadChatSessions = useCallback(async () => {
+    setIsLoadingSessions(true);
+    try {
+      const threads: any[] = await api.get('/chat-with-ai/chats');
+      const mapped: PreSavedSession[] = threads.map(t => ({
+        id: t.chat_id,
+        title: t.title ?? 'New Chat',
+        lastMsg: t.last_message_preview ?? '',
+        timestamp: new Date(t.updated_at ?? t.created_at).toLocaleDateString(),
+      }));
+      setChatSessions(mapped);
+      return mapped;
+    } catch {
+      return [];
+    } finally {
+      setIsLoadingSessions(false);
+    }
+  }, []);
+
+  // ─── Load history for a specific chat thread ───────────────────────────────
+  const loadChatHistory = useCallback(async (chatId: string) => {
+    try {
+      const msgs: any[] = await api.get(`/chat-with-ai/chats/${chatId}/messages`);
+      const flatMsgs: ChatMessage[] = msgs.flatMap(m => backendMsgToChatMsg(m));
+      setMessages(flatMsgs);
+    } catch {
+      setMessages([]);
+    }
+  }, []);
+
+  // ─── Create or open context-aware chat thread on mount ───────────────────
+  useEffect(() => {
+    const init = async () => {
+      const sessions = await loadChatSessions();
+
+      // If we have URL context params, create a new context-aware thread
+      if (urlAssignmentId || urlChapterId || urlClassId) {
+        try {
+          const body: any = {};
+          if (urlAssignmentId) body.assignment_id = urlAssignmentId;
+          if (urlChapterId) body.chapter_id = urlChapterId;
+          if (urlClassId) body.class_id = urlClassId;
+
+          const thread: any = await api.post('/chat-with-ai/chats', body);
+          const chatId: string = thread.chat_id;
+          const ctx = thread.context_json ?? {};
+
+          // Build assignment context banner data
+          if (ctx.assignment_title || ctx.chapter_title) {
+            setAssignmentContext({
+              assignmentTitle: ctx.assignment_title,
+              chapterTitle: ctx.chapter_title,
+              subject: ctx.subject ?? ctx.class_display_name,
+              type: ctx.assignment_type,
+            });
+          }
+
+          // Add welcome message
+          const welcomeText = ctx.assignment_title
+            ? `👋 Starting "${ctx.assignment_title}". Ask me anything or type "/" to use tools like /quiz, /simulation, /video!`
+            : ctx.chapter_title
+            ? `📖 Opened "${ctx.chapter_title}". Ask me anything about this chapter!`
+            : `What concept are we exploring? Type "/" to summon virtual tools: video narrations, 3D orbits, sandbox simulations, or custom quizzes.`;
+
+          setMessages([{
+            id: `welcome-${Date.now()}`,
+            sender: 'mootion',
+            text: welcomeText,
+            timestamp: 'Just now',
+          }]);
+
+          setActiveChatId(chatId);
+          setActiveSessionId(chatId);
+
+          // Refresh sessions list
+          const newSession: PreSavedSession = {
+            id: chatId,
+            title: thread.title ?? ctx.assignment_title ?? ctx.chapter_title ?? 'New Chat',
+            lastMsg: welcomeText.slice(0, 60) + '...',
+            timestamp: 'Just now',
+          };
+          setChatSessions(prev => [newSession, ...prev]);
+        } catch (err) {
+          console.error('Failed to create context chat thread:', err);
+          // Fall through to load existing sessions
+        }
+      } else if (sessions.length > 0) {
+        // No URL context — open the most recent thread
+        const first = sessions[0];
+        setActiveChatId(first.id);
+        setActiveSessionId(first.id);
+        await loadChatHistory(first.id);
+      } else {
+        // No sessions at all — show empty welcome
+        setMessages([{
+          id: `welcome-${Date.now()}`,
+          sender: 'mootion',
+          text: 'What concept are we exploring? Type "/" to summon virtual tools: video narrations, 3D orbits, sandbox simulations, or custom quizzes.',
+          timestamp: 'Just now',
+        }]);
+        setIsLoadingSessions(false);
+      }
+    };
+
+    init();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handlePlayAudio = (url: string) => {
     if (playingAudioUrl === url && currentAudio) {
       currentAudio.pause();
@@ -1165,12 +1382,11 @@ export function StudentPlaygroundPage() {
     setTeacherAssignedNew(nextVal);
   };
 
-  const handleSendMessage = (e?: React.FormEvent) => {
+  const handleSendMessage = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!textInput.trim()) return;
+    if (!textInput.trim() || isSendingMessage) return;
 
-    if (quota >= 10) {
-      // Prompt quota exhausted warning
+    if (quota >= quotaMax) {
       setMessages(prev => [
         ...prev,
         {
@@ -1182,7 +1398,7 @@ export function StudentPlaygroundPage() {
         {
           id: `msg-warn-${Date.now()}`,
           sender: 'mootion',
-          text: '⚠️ Playground quota used up. You reached 10 / 10 generations this week! To keep your curiosity thriving, Playground resets next Monday at 8:00 AM UTC.',
+          text: `You have reached your weekly limit of ${quotaMax} generations. The playground resets next Monday.`,
           timestamp: 'Just now'
         }
       ]);
@@ -1194,28 +1410,17 @@ export function StudentPlaygroundPage() {
     setTextInput('');
     setShowCommands(false);
 
-    // Save message from student
-    const studentMsgId = `msg-usr-${Date.now()}`;
-    const newStudentMsg: ChatMessage = {
-      id: studentMsgId,
-      sender: 'student',
-      text: userInput,
-      timestamp: 'Just now'
-    };
-
-    setMessages(prev => [...prev, newStudentMsg]);
-
     const normalizedInput = userInput.toLowerCase();
 
-    // Intercept Ask Teacher command
-    const isAskTeacher = normalizedInput.startsWith('/ask-teacher') || normalizedInput.startsWith('/ask_teacher') || normalizedInput.includes('ask-teacher') || normalizedInput.includes('ask_teacher');
+    // ── Intercept /ask-teacher command (local handling, no API call needed) ──
+    const isAskTeacher = normalizedInput.startsWith('/ask-teacher') || normalizedInput.startsWith('/ask_teacher');
     if (isAskTeacher) {
       let queryText = '';
       let targetSubjectName = '';
-      
-      let commandPattern = /^\/ask[-_]teacher\s*/i;
-      let cleanedInput = userInput.replace(commandPattern, '').trim();
-      
+
+      const commandPattern = /^\/ask[-_]teacher\s*/i;
+      const cleanedInput = userInput.replace(commandPattern, '').trim();
+
       if (cleanedInput.startsWith('/')) {
         const parts = cleanedInput.substring(1).split(/\s+/);
         targetSubjectName = parts[0];
@@ -1223,36 +1428,27 @@ export function StudentPlaygroundPage() {
       } else {
         queryText = cleanedInput;
       }
-      
+
       if (!queryText) {
         setMessages(prev => [
           ...prev,
-          {
-            id: `msg-mootion-help-${Date.now()}`,
-            sender: 'mootion',
-            text: `❌ **Please provide a question.**\nExample: \`/ask-teacher /Science Why is water wet?\` or \`/ask-teacher Why is water wet?\``,
-            timestamp: 'Just now'
-          }
+          { id: `msg-usr-${Date.now()}`, sender: 'student', text: userInput, timestamp: 'Just now' },
+          { id: `msg-mootion-help-${Date.now()}`, sender: 'mootion', text: `Please provide a question. Example: /ask-teacher /Science Why is water wet?`, timestamp: 'Just now' },
         ]);
         return;
       }
 
       let targetClass: any = null;
       if (targetSubjectName) {
-        targetClass = joinedClasses.find(c => 
+        targetClass = joinedClasses.find(c =>
           c.subject.toLowerCase() === targetSubjectName.toLowerCase() ||
           c.display_name.toLowerCase() === targetSubjectName.toLowerCase()
         );
-        
         if (!targetClass) {
           setMessages(prev => [
             ...prev,
-            {
-              id: `msg-mootion-err-${Date.now()}`,
-              sender: 'mootion',
-              text: `❌ **Subject "${targetSubjectName}" not found.** You are joined in: ${joinedClasses.map(c => `\`${c.subject}\``).join(', ')}.`,
-              timestamp: 'Just now'
-            }
+            { id: `msg-usr-${Date.now()}`, sender: 'student', text: userInput, timestamp: 'Just now' },
+            { id: `msg-mootion-err-${Date.now()}`, sender: 'mootion', text: `Subject "${targetSubjectName}" not found. You are joined in: ${joinedClasses.map(c => c.subject).join(', ')}.`, timestamp: 'Just now' },
           ]);
           return;
         }
@@ -1264,236 +1460,109 @@ export function StudentPlaygroundPage() {
         } else if (joinedClasses.length > 1) {
           setMessages(prev => [
             ...prev,
+            { id: `msg-usr-${Date.now()}`, sender: 'student', text: userInput, timestamp: 'Just now' },
             {
               id: `msg-picker-${Date.now()}`,
               sender: 'mootion',
-              text: `🤔 You are enrolled in multiple classes. Please select which subject this doubt is for:`,
+              text: 'You are enrolled in multiple classes. Please select which subject this doubt is for:',
               timestamp: 'Just now',
-              payload: {
-                type: 'subject_picker',
-                title: 'Select Subject',
-                queryText: queryText
-              } as any
-            }
+              payload: { type: 'subject_picker', title: 'Select Subject', queryText } as any
+            },
           ]);
           return;
         } else {
           setMessages(prev => [
             ...prev,
-            {
-              id: `msg-mootion-err-${Date.now()}`,
-              sender: 'mootion',
-              text: `❌ **You are not enrolled in any classes.** Please join a class on the home page first.`,
-              timestamp: 'Just now'
-            }
+            { id: `msg-usr-${Date.now()}`, sender: 'student', text: userInput, timestamp: 'Just now' },
+            { id: `msg-mootion-err-${Date.now()}`, sender: 'mootion', text: 'You are not enrolled in any classes. Please join a class on the home page first.', timestamp: 'Just now' },
           ]);
           return;
         }
       }
 
+      setMessages(prev => [
+        ...prev,
+        { id: `msg-usr-${Date.now()}`, sender: 'student', text: userInput, timestamp: 'Just now' },
+      ]);
       submitDoubtApi(targetClass.class_id, queryText);
       return;
     }
 
-    // Increment quota usage
-    const nextQuota = incrementPlaygroundQuota();
-    setQuota(nextQuota);
+    // ── Add student's message immediately (optimistic) ──
+    const studentMsgId = `msg-usr-${Date.now()}`;
+    setMessages(prev => [
+      ...prev,
+      { id: studentMsgId, sender: 'student', text: userInput, timestamp: 'Just now' }
+    ]);
 
-    // If none of the options (video, simulation, sandbox, quiz, practice, assessment) are selected or matched, respond to users query via text using Gemini!
-    const isVideo = normalizedInput.startsWith('/video') || normalizedInput.includes('video') || normalizedInput.includes('storyboard');
-    const isSim = normalizedInput.startsWith('/simulation') || normalizedInput.includes('simulation') || normalizedInput.includes('sandbox') || normalizedInput.includes('buoyancy');
-    const isQuiz = normalizedInput.startsWith('/quiz') || normalizedInput.includes('quiz') || normalizedInput.includes('practice') || normalizedInput.includes('assessment');
-    const isUniverse = normalizedInput.startsWith('/universe') || normalizedInput.includes('universe') || normalizedInput.includes('orbital') || normalizedInput.includes(' orbits');
+    // ── Add loading indicator ──
+    const loadingMsgId = `msg-loading-${Date.now()}`;
+    setMessages(prev => [
+      ...prev,
+      { id: loadingMsgId, sender: 'mootion', text: '...', timestamp: 'Just now' }
+    ]);
 
-    if (!isVideo && !isSim && !isQuiz && !isUniverse) {
-      // Fallback: Real-time Gemini Response via server-side chat proxy
-      const loadingMsgId = `msg-ai-loading-${Date.now()}`;
-      setMessages(prev => [
-        ...prev,
-        {
-          id: loadingMsgId,
-          sender: 'mootion',
-          text: '...',
-          timestamp: 'Just now'
-        }
-      ]);
+    setIsSendingMessage(true);
 
-      fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: userInput,
-          context: 'The user is a physics/chemistry student in the science playground. Assist them in an encouraging, highly educational tone.'
-        })
-      })
-      .then(res => {
-        if (!res.ok) throw new Error("Network response error");
-        return res.json();
-      })
-      .then(data => {
-        setMessages(prev => prev.map(m => m.id === loadingMsgId ? {
-          ...m,
-          text: data.text || `💡 No details found. Let's work on "${userInput}" together!`
-        } : m));
-      })
-      .catch(err => {
-        console.error("Gemini fallback text error:", err);
-        setMessages(prev => prev.map(m => m.id === loadingMsgId ? {
-          ...m,
-          text: `💡 I understand you're curious about *"${userInput}"*! Let's explore. Type **/video**, **/simulation**, or **/quiz** to summon dedicated sandbox utilities immediately!`
-        } : m));
-      });
-      return;
-    }
-
-    // Quiz: async Gemini fetch — handle separately with early return
-    if (isQuiz) {
-      const loadingMsgId = `msg-quiz-loading-${Date.now()}`;
-      setMessages(prev => [
-        ...prev,
-        {
-          id: loadingMsgId,
-          sender: 'mootion',
-          text: '...',
-          timestamp: 'Just now'
-        }
-      ]);
-
-      let topic = "General Science";
-      if (userInput.startsWith('/quiz ')) {
-        topic = userInput.substring(6).trim();
-      } else if (normalizedInput.includes('quiz')) {
-        topic = userInput.replace(/quiz/gi, '').replace(/practice/gi, '').replace(/assessment/gi, '').replace(/\//g, '').trim() || "General Science";
+    try {
+      // Ensure we have an active chat thread
+      let chatId = activeChatId;
+      if (!chatId) {
+        const thread: any = await api.post('/chat-with-ai/chats', { title: userInput.slice(0, 60) });
+        chatId = thread.chat_id;
+        setActiveChatId(chatId);
+        setActiveSessionId(chatId!);
+        const newSess: PreSavedSession = {
+          id: chatId!,
+          title: thread.title ?? userInput.slice(0, 40),
+          lastMsg: userInput.slice(0, 60),
+          timestamp: 'Just now',
+        };
+        setChatSessions(prev => [newSess, ...prev]);
       }
 
-      fetch('/api/quiz', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subject: 'Science', topic: topic, questionCount: 5 })
-      })
-      .then(res => res.json())
-      .then(data => {
-        const rawQs = data.questions || [];
-        const mappedQs = rawQs.slice(0, 5).map((q: any, i: number) => ({
-          id: i + 1,
-          question: q.questionText || q.question || `Question ${i + 1}`,
-          options: q.options || [],
-          correctAnswerIdx: q.options ? q.options.indexOf(q.correctAnswer) : 0,
-          feedbackCorrect: q.explanation || 'Correct!',
-          feedbackIncorrect: q.explanation || 'Not quite — review this concept!'
-        }));
+      // Send the message
+      const response: any = await api.post(`/chat-with-ai/chats/${chatId}/messages`, { content: userInput });
 
-        const quizMsg: ChatMessage = {
-          id: `msg-quiz-${Date.now()}`,
-          sender: 'mootion',
-          text: `Your 5-question quiz on **${topic}** is ready. You have 10 seconds per question:`,
-          timestamp: 'Just now',
-          payload: {
-            type: 'quiz',
-            title: `${topic} Quiz`,
-            quiz: { currentQuestionIdx: 0, score: 0, isCompleted: false, questions: mappedQs }
-          }
-        };
-        setMessages(prev => prev.map(m => m.id === loadingMsgId ? quizMsg : m));
-      })
-      .catch(() => {
-        const fallbackMsg: ChatMessage = {
-          id: `msg-quiz-${Date.now()}`,
-          sender: 'mootion',
-          text: `Your quiz on **${topic}** is ready:`,
-          timestamp: 'Just now',
-          payload: {
-            type: 'quiz',
-            title: `${topic} Quiz`,
-            quiz: {
-              currentQuestionIdx: 0, score: 0, isCompleted: false,
-              questions: [
-                { id: 1, question: 'If all net external forces on a moving object cancel to zero, what happens?', options: ['It stops immediately.', 'It continues at constant velocity.', 'It accelerates.', 'It reverses direction.'], correctAnswerIdx: 1, feedbackCorrect: 'Correct! Newton\'s First Law.', feedbackIncorrect: 'Recall Newton\'s First Law: no net force = constant velocity.' },
-                { id: 2, question: 'Which quantity is directly proportional to acceleration (F=ma)?', options: ['Friction', 'Drag', 'Net Force', 'Viscosity'], correctAnswerIdx: 2, feedbackCorrect: 'Correct! F = ma.', feedbackIncorrect: 'Net Force is proportional to acceleration by F = ma.' },
-                { id: 3, question: 'What is the unit of force in SI?', options: ['Joule', 'Watt', 'Newton', 'Pascal'], correctAnswerIdx: 2, feedbackCorrect: 'Correct! Force is measured in Newtons.', feedbackIncorrect: 'Force is measured in Newtons (N).' },
-                { id: 4, question: 'Objects submerged in fluid experience which upward force?', options: ['Gravity', 'Buoyancy', 'Tension', 'Normal'], correctAnswerIdx: 1, feedbackCorrect: 'Correct! Buoyancy = Archimedes principle.', feedbackIncorrect: 'Buoyancy is the upward force in fluids.' },
-                { id: 5, question: 'An object with density greater than water will?', options: ['Float', 'Hover', 'Sink', 'Dissolve'], correctAnswerIdx: 2, feedbackCorrect: 'Correct! Denser objects sink.', feedbackIncorrect: 'Objects denser than water sink.' }
-              ]
-            }
-          }
-        };
-        setMessages(prev => prev.map(m => m.id === loadingMsgId ? fallbackMsg : m));
-      });
-      return;
-    }
+      // Update quota from response
+      const newQuota = incrementPlaygroundQuota();
+      setQuota(newQuota);
 
-    // Generate responsive AI response (video, simulation, universe)
-    setTimeout(() => {
-      let aiResponse: ChatMessage;
+      // Build the assistant message
+      const assistantRaw = response.assistant_message;
+      const generatedAssets: any[] = response.generated_assets ?? [];
 
-      if (isVideo) {
-        let topic = "Physical Forces";
-        if (userInput.startsWith('/video ')) {
-          topic = userInput.substring(7).trim();
-        } else if (normalizedInput.includes('video')) {
-          topic = userInput.replace(/video/gi, '').replace(/\//g, '').trim() || "Physical Forces";
-        }
-        aiResponse = {
-          id: `msg-ai-${Date.now()}`,
-          sender: 'mootion',
-          text: `🎬 I've synthesized a custom Explainer Video on **${topic}** for you! Unlocked from your physics curriculum:`,
-          timestamp: 'Just now',
-          payload: {
-            type: 'video',
-            title: `Explainer Video: ${topic}`,
-            video: {
-              topic: topic,
-              chapters: ['Concept Introduction', 'Real-world Demonstrations', 'Active Variables Analysis'],
-              storyboard: [
-                { step: 1, title: 'Concept Introduction', description: 'Brief introduction to key variables and initial state formulas.', duration: '0:35', illustration: '🎬' }
-              ]
-            }
-          }
-        };
-      } 
-      else if (isSim) {
-        let topic = "Forces & Motion Sandbox";
-        if (userInput.startsWith('/simulation ')) {
-          topic = userInput.substring(12).trim();
-        } else if (normalizedInput.includes('simulation')) {
-          topic = userInput.replace(/simulation/gi, '').replace(/sandbox/gi, '').replace(/\//g, '').trim() || "Forces & Motion";
-        }
-        aiResponse = {
-          id: `msg-ai-${Date.now()}`,
-          sender: 'mootion',
-          text: `🔬 Active learning module synchronized! Launching the interactive virtual simulation representing **${topic}**:`,
-          timestamp: 'Just now',
-          payload: {
-            type: 'simulation',
-            title: topic,
-            simulation: {
-              objectDensity: 450,
-              fluidDensity: 1000,
-              objectVolume: 0.15
-            }
-          }
-        };
-      } 
-      else {
-        // Universe orbital system
-        aiResponse = {
-          id: `msg-ai-${Date.now()}`,
-          sender: 'mootion',
-          text: "Exploring Orbitals! I've loaded your **Atomic & Cosmic Planetary System visualizer** in the conversation viewport.",
-          timestamp: 'Just now',
-          payload: {
-            type: 'universe',
-            title: 'Orbital Universe Visualizer',
-            universe: {
-              subject: 'Physics / Chemistry',
-              systemType: normalizedInput.includes('atom') ? 'atom' : 'solar'
-            }
-          }
-        };
+      let assistantPayload: ChatMessage['payload'] | undefined;
+      if (generatedAssets.length > 0) {
+        assistantPayload = buildPayloadFromAsset(generatedAssets[0]);
       }
 
-      setMessages(prev => [...prev, aiResponse]);
-    }, 600);
+      const assistantMsg: ChatMessage = {
+        id: assistantRaw?.message_id ?? `msg-ai-${Date.now()}`,
+        sender: 'mootion',
+        text: assistantRaw?.content ?? 'Here is what I found for you.',
+        timestamp: 'Just now',
+        payload: assistantPayload,
+      };
+
+      setMessages(prev => prev.map(m => m.id === loadingMsgId ? assistantMsg : m));
+
+      // Update session list preview
+      setChatSessions(prev => prev.map(s =>
+        s.id === chatId
+          ? { ...s, lastMsg: (assistantRaw?.content ?? '').slice(0, 60), timestamp: 'Just now' }
+          : s
+      ));
+    } catch (err: any) {
+      console.error('Failed to send message:', err);
+      setMessages(prev => prev.map(m =>
+        m.id === loadingMsgId
+          ? { ...m, text: `Sorry, I couldn't get a response right now. Please try again.` }
+          : m
+      ));
+    } finally {
+      setIsSendingMessage(false);
+    }
   };
 
   // Speech recording functions using MediaRecorder and Gemini Speech-to-Text
@@ -1587,81 +1656,45 @@ export function StudentPlaygroundPage() {
     }
   };
 
-  const handlePreSessionOpen = (sess: PreSavedSession) => {
+  const handlePreSessionOpen = async (sess: PreSavedSession) => {
     setActiveSessionId(sess.id);
-    
-    // Simulate reloading appropriate messages for the session
-    if (sess.id === 'sess-1') {
-      setMessages([
-        {
-          id: 'msg-s1-1',
-          sender: 'mootion',
-          text: 'Active Buoyant Forces workspace re-loaded. Click the interactive simulation below to test block displacement!',
-          timestamp: 'Just now',
-          payload: {
-            type: 'simulation',
-            title: 'Displacement Lab Sandbox',
-            simulation: { objectDensity: 300, fluidDensity: 1000, objectVolume: 0.12 }
-          }
-        }
-      ]);
-    } else if (sess.id === 'sess-2') {
-      setMessages([
-        {
-          id: 'msg-s2-1',
-          sender: 'mootion',
-          text: 'Atomic orbits session resumed. Explore electrons revolving on rings dynamic orbital speeds.',
-          timestamp: 'Just now',
-          payload: {
-            type: 'universe',
-            title: 'Modern Shell Model',
-            universe: { subject: 'Chemistry', systemType: 'atom' }
-          }
-        }
-      ]);
-    } else {
-      setMessages([
-        {
-          id: 'msg-s3-1',
-          sender: 'mootion',
-          text: 'Custom Video explanation ready. Click the chapters below:',
-          timestamp: 'Just now',
-          payload: {
-            type: 'video',
-            title: 'Keplerian Gravity Acceleration Storyboard',
-            video: {
-              topic: 'Gravitation orbits',
-              chapters: ['Concept', 'Simulation Demo', 'Speed Variation'],
-              storyboard: [
-                { step: 1, title: 'Inward Pull Grid', description: 'Heavy massive planets distort orbital grid meshes.', duration: '0:35', illustration: 'Grid' },
-                { step: 2, title: 'Velocity Acceleration', description: 'Planet orbits speed up near perihelion points.', duration: '0:50', illustration: 'Orbit' }
-              ]
-            }
-          }
-        }
-      ]);
-    }
+    setActiveChatId(sess.id);
+    setMessages([]);
+    setAssignmentContext(null);
+    await loadChatHistory(sess.id);
     setIsMobileHistoryOpen(false);
   };
 
-  const handleStartNewSession = () => {
-    const newId = `sess-${Date.now()}`;
-    const newSess: PreSavedSession = {
-      id: newId,
-      title: '✨ New Explorer Topic',
-      lastMsg: 'Waiting for custom sandbox commands...',
-      timestamp: 'Just now'
-    };
-    setChatSessions(prev => [newSess, ...prev]);
-    setActiveSessionId(newId);
-    setMessages([
-      {
-        id: `msg-${Date.now()}`,
+  const handleStartNewSession = async () => {
+    const welcomeMsg = 'What concept are we exploring? Type "/" to summon virtual tools: video narrations, 3D orbits, sandbox simulations, or custom quizzes.';
+    try {
+      const thread: any = await api.post('/chat-with-ai/chats', {});
+      const chatId = thread.chat_id;
+      const newSess: PreSavedSession = {
+        id: chatId,
+        title: thread.title ?? 'New Chat',
+        lastMsg: welcomeMsg.slice(0, 60),
+        timestamp: 'Just now',
+      };
+      setChatSessions(prev => [newSess, ...prev]);
+      setActiveSessionId(chatId);
+      setActiveChatId(chatId);
+      setAssignmentContext(null);
+      setMessages([{
+        id: `msg-welcome-${Date.now()}`,
         sender: 'mootion',
-        text: 'What concept are we exploring? Type "/" to summon virtual tools: video narrations, 3D orbits, sandbox simulations, or custom quizzes.',
-        timestamp: 'Just now'
-      }
-    ]);
+        text: welcomeMsg,
+        timestamp: 'Just now',
+      }]);
+    } catch {
+      // Fallback: local only session
+      const newId = `local-${Date.now()}`;
+      setChatSessions(prev => [{ id: newId, title: 'New Chat', lastMsg: '', timestamp: 'Just now' }, ...prev]);
+      setActiveSessionId(newId);
+      setActiveChatId(null);
+      setAssignmentContext(null);
+      setMessages([{ id: `msg-welcome-${Date.now()}`, sender: 'mootion', text: welcomeMsg, timestamp: 'Just now' }]);
+    }
   };
 
   // Render video payload inline in message
@@ -2138,15 +2171,32 @@ export function StudentPlaygroundPage() {
         </div>
         <div className="flex flex-col items-end gap-0.5 select-none">
           <div className="text-[9px] font-black uppercase tracking-wider font-montserrat text-[#1800ad]">
-            Quota: <span className="font-black text-[#1800ad]">{quota}/10</span>
+            Quota: <span className="font-black text-[#1800ad]">{quota}/{quotaMax}</span>
           </div>
           <div className="w-16 bg-[#1800ad]/10 h-1 rounded-full overflow-hidden border border-[#1800ad]/15">
-            <div className="h-full bg-[#1800ad] rounded-full" style={{ width: `${(quota / 10) * 100}%` }}></div>
+            <div className="h-full bg-[#1800ad] rounded-full" style={{ width: `${Math.min((quota / quotaMax) * 100, 100)}%` }}></div>
           </div>
         </div>
       </header>
 
-      {/* 2. Responsive Drawers */}
+      {/* Assignment Context Banner */}
+      {assignmentContext && (
+        <div className="mx-4 md:mx-6 mt-2 px-4 py-2.5 bg-[#1800ad]/10 border border-[#1800ad]/20 rounded-2xl flex items-center justify-between gap-3 font-montserrat">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-6 h-6 rounded-full bg-[#1800ad] flex items-center justify-center shrink-0">
+              <BookOpen size={12} className="text-[#f6f4ee]" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold text-[#1800ad]/60 uppercase tracking-wider truncate">{assignmentContext.subject}</p>
+              <p className="text-xs font-black text-[#1800ad] truncate">{assignmentContext.assignmentTitle ?? assignmentContext.chapterTitle}</p>
+            </div>
+          </div>
+          <button onClick={() => setAssignmentContext(null)} className="shrink-0 hover:opacity-70 transition-opacity">
+            <X size={14} className="text-[#1800ad]" />
+          </button>
+        </div>
+      )}
+
       {/* Mobile Drawer Navigation (Collapsible LHS Panel for Sessions) */}
       <AnimatePresence>
         {isMobileHistoryOpen && (

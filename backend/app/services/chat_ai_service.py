@@ -50,9 +50,15 @@ def _get_client() -> AzureOpenAI:
     if not settings.azure_openai_endpoint or not settings.azure_openai_api_key:
         raise RuntimeError("Azure OpenAI is not configured")
 
+    endpoint = settings.azure_openai_endpoint.rstrip("/")
+    if endpoint.endswith("/openai/v1"):
+        endpoint = endpoint[:-10]
+    elif endpoint.endswith("/openai"):
+        endpoint = endpoint[:-7]
+
     return AzureOpenAI(
         api_version=settings.azure_openai_api_version,
-        azure_endpoint=settings.azure_openai_endpoint,
+        azure_endpoint=endpoint,
         api_key=settings.azure_openai_api_key,
     )
 
