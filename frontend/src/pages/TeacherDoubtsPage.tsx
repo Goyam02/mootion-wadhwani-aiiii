@@ -381,7 +381,7 @@ Do not output any markdown formatting, backticks, or comments. Output only the r
           <NavItem icon={<BarChart2 size={24} />} onClick={() => navigate('/teacher/home')} />
           <NavItem icon={<MessageSquare size={24} />} active onClick={() => navigate('/teacher/doubts')} />
         </nav>
-        <div onClick={() => navigate('/')} className="shrink-0 cursor-pointer flex items-center justify-center w-12 h-12 rounded-full border-2 border-[#1800ad] bg-[#f6f4ee] hover:opacity-90 transition-all shadow-sm">
+        <div onClick={() => api.logout()} className="shrink-0 cursor-pointer flex items-center justify-center w-12 h-12 rounded-full border-2 border-[#1800ad] bg-[#f6f4ee] hover:opacity-90 transition-all shadow-sm">
           <span className="text-[#1800ad] font-extrabold text-lg">P</span>
         </div>
       </aside>
@@ -410,39 +410,8 @@ Do not output any markdown formatting, backticks, or comments. Output only the r
             {/* Left List (Fixed width on desktop, full width on mobile) */}
             <div className={`flex flex-col h-full overflow-hidden w-full md:w-[300px] lg:w-[350px] shrink-0 ${selectedDoubtId ? 'hidden md:flex' : 'flex'}`}>
               
-              {/* Class/Subject Filter List at the top */}
-              <div className="flex gap-2 overflow-x-auto pb-3 mb-3 border-b border-[#1800ad]/15 select-none shrink-0 scrollbar-none">
-                <button
-                  type="button"
-                  onClick={() => setSelectedFilter('all')}
-                  className={`px-3.5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider transition-all border shrink-0 ${
-                    selectedFilter === 'all'
-                      ? 'bg-[#1800ad] text-[#f6f4ee] border-[#1800ad]'
-                      : 'bg-white text-[#1800ad] border-[#1800ad]/20 hover:bg-[#1800ad]/5'
-                  }`}
-                >
-                  All ({doubts.filter(d => d.status.toLowerCase() !== 'resolved' && d.status.toLowerCase() !== 'responded').length})
-                </button>
-                {classes.map((cls) => {
-                  const pendingCount = doubts.filter(d => d.class_id === cls.class_id && d.status.toLowerCase() !== 'resolved' && d.status.toLowerCase() !== 'responded').length;
-                  const isClassSelected = selectedFilter === cls.class_id;
 
-                  return (
-                    <button
-                      key={cls.class_id}
-                      type="button"
-                      onClick={() => setSelectedFilter(cls.class_id)}
-                      className={`px-3.5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider transition-all border shrink-0 ${
-                        isClassSelected
-                          ? 'bg-[#1800ad] text-[#f6f4ee] border-[#1800ad]'
-                          : 'bg-white text-[#1800ad] border-[#1800ad]/20 hover:bg-[#1800ad]/5'
-                      }`}
-                    >
-                      {cls.subject} {pendingCount > 0 ? `(${pendingCount})` : ''}
-                    </button>
-                  );
-                })}
-              </div>
+
 
               {/* Doubts scroll list */}
               <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-3 custom-scrollbar">
@@ -709,7 +678,7 @@ Do not output any markdown formatting, backticks, or comments. Output only the r
                         <div className="flex gap-2 justify-end">
                           <button
                             type="button"
-                            onClick={() => handleRespondDirectly(selectedDoubt.doubt_id, "Resolved.")}
+                            onClick={() => handleResolveDoubt(selectedDoubt.doubt_id)}
                             disabled={submittingIds[selectedDoubt.doubt_id] || isTranscribing || isRecording}
                             className="px-4 py-2.5 bg-white border-2 border-[#1800ad] text-[#1800ad] hover:bg-[#1800ad]/5 font-black uppercase text-[10px] tracking-wider rounded-xl transition-all active:scale-95 disabled:opacity-40"
                           >

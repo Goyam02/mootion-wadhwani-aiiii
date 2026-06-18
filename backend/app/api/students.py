@@ -20,6 +20,8 @@ from app.schemas.student_actions import (
     StudentDoubtReplyRequest,
 )
 from app.services.onboarding_service import join_student_class, list_student_classes, set_student_language
+from app.schemas.chapter import ChapterListItem, ChapterResponse
+from app.services.chapter_service import list_class_chapters, get_class_chapter
 from app.services.student_actions_service import (
     submit_student_doubt,
     get_or_create_quota,
@@ -27,6 +29,7 @@ from app.services.student_actions_service import (
     list_student_doubts,
     resolve_student_doubt,
     student_reply_to_doubt,
+    reopen_student_doubt,
 )
 
 router = APIRouter(prefix="/students", tags=["students"])
@@ -78,6 +81,7 @@ def create_doubt(
         student=user,
         class_id=request.class_id,
         query_text=request.query_text,
+        topic=request.topic,
         tried_before=request.tried_before,
         attempt_text=request.attempt_text,
     )
@@ -134,5 +138,24 @@ def student_reply_doubt(
     db: Session = Depends(get_db),
 ):
     return student_reply_to_doubt(db, user, doubt_id, request.response_text)
+
+
+@router.post("/doubts/{doubt_id}/reopen", response_model=StudentDoubtResponse)
+def student_reopen_doubt(
+    doubt_id: str,
+    user=Depends(require_student),
+    db: Session = Depends(get_db),
+):
+    return reopen_student_doubt(db, str(user.id), doubt_id)
+
+
+@router.get("/classes/{class_id}/chapters", response_model=list[ChapterListItem])
+def student_chapters(class_id: str, user=Depends(require_student), db: Session = Depends(get_db)):
+    return list_class_chapters(db, user, class_id)
+
+
+@router.get("/classes/{class_id}/chapters/{chapter_id}", response_model=ChapterResponse)
+def student_chapter_detail(class_id: str, chapter_id: str, user=Depends(require_student), db: Session = Depends(get_db)):
+    return get_class_chapter(db, user, class_id, chapter_id)
 
 

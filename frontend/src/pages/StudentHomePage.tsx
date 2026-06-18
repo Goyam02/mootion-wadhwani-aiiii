@@ -113,7 +113,7 @@ export function StudentHomePage() {
     const fetchChapters = async () => {
       setIsLoadingChapters(true);
       try {
-        const data = await api.get(`/teachers/classes/${selectedClass.class_id}/chapters`);
+        const data = await api.get(`/students/classes/${selectedClass.class_id}/chapters`);
         const sorted = [...data].sort((a: any, b: any) => a.sequence_number - b.sequence_number);
         setClassChapters(sorted);
       } catch (err) {
@@ -221,7 +221,7 @@ export function StudentHomePage() {
         </nav>
 
         {/* Profile Avatar Fixed to Bottom Left */}
-        <div className="shrink-0 cursor-pointer flex items-center justify-center group w-12 h-12 rounded-full border-2 border-[#1800ad] bg-[#f6f4ee] hover:opacity-90 transition-opacity duration-300 shadow-sm relative">
+        <div onClick={() => api.logout()} className="shrink-0 cursor-pointer flex items-center justify-center group w-12 h-12 rounded-full border-2 border-[#1800ad] bg-[#f6f4ee] hover:opacity-90 transition-opacity duration-300 shadow-sm relative">
            <span className="text-[#1800ad] font-bold text-lg transition-colors duration-300">P</span>
         </div>
       </aside>

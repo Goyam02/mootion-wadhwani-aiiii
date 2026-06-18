@@ -50,6 +50,7 @@ export function StudentLoginPage() {
 
       localStorage.setItem('mootion_access_token', data.access_token);
       localStorage.setItem('mootion_refresh_token', data.refresh_token);
+      localStorage.setItem('mootion_role', data.role || 'student');
 
       navigate('/student/home');
     } catch (err: any) {

@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { api } from '../lib/api';
 import { Task, TaskStatus, TaskType } from '../data/tasks';
 import { NavItem } from '../components/NavItem';
 import { ChatbotFab } from '../components/ChatbotFab';
@@ -121,7 +122,7 @@ export function StudentTasksPage() {
         </nav>
 
         {/* Profile Avatar Fixed to Bottom Left */}
-        <div className="shrink-0 cursor-pointer flex items-center justify-center group w-12 h-12 rounded-full border-2 border-[#1800ad] bg-[#f6f4ee] hover:opacity-90 transition-opacity duration-300 shadow-sm relative">
+        <div onClick={() => api.logout()} className="shrink-0 cursor-pointer flex items-center justify-center group w-12 h-12 rounded-full border-2 border-[#1800ad] bg-[#f6f4ee] hover:opacity-90 transition-opacity duration-300 shadow-sm relative">
            <span className="text-[#1800ad] font-bold text-lg transition-colors duration-300">P</span>
         </div>
       </aside>

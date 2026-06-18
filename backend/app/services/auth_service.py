@@ -28,7 +28,7 @@ def issue_tokens(db: Session, user: User) -> TokenResponse:
         AuthSession(
             user_id=user.id,
             refresh_token_hash=hash_refresh_token(refresh_token),
-            expires_at=datetime.now(timezone.utc) + timedelta(days=30),
+            expires_at=datetime.now(timezone.utc) + timedelta(days=7),
         ),
     )
 
@@ -70,6 +70,11 @@ def refresh_user_tokens(db: Session, request: RefreshRequest) -> TokenResponse:
     if not session_row or session_row.revoked_at is not None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
 
+    # Enforce refresh token expiry
+    if session_row.expires_at and session_row.expires_at < datetime.now(timezone.utc):
+        revoke_session(db, session_row)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token expired")
+
     user = get_user_by_id(db, session_row.user_id)
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
@@ -82,6 +87,11 @@ def logout_user(db: Session, request: RefreshRequest) -> dict[str, bool]:
     session_row = get_session_by_refresh_hash(db, hash_refresh_token(request.refresh_token))
     if not session_row or session_row.revoked_at is not None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
+
+    # Enforce refresh token expiry
+    if session_row.expires_at and session_row.expires_at < datetime.now(timezone.utc):
+        revoke_session(db, session_row)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token expired")
 
     revoke_session(db, session_row)
     return {"ok": True}

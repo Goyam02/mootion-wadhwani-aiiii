@@ -15,7 +15,7 @@ class Settings:
     database_url: str = os.getenv("DATABASE_URL", "sqlite:///./mootion.db")
     jwt_secret: str = os.getenv("JWT_SECRET", "change-me")
     jwt_algorithm: str = os.getenv("JWT_ALGORITHM", "HS256")
-    jwt_access_token_ttl_minutes: int = int(os.getenv("JWT_ACCESS_TOKEN_TTL_MINUTES", "60"))
+    jwt_access_token_ttl_minutes: int = int(os.getenv("JWT_ACCESS_TOKEN_TTL_MINUTES", "15"))
     google_oauth_client_id: str | None = os.getenv("GOOGLE_OAUTH_CLIENT_ID")
     google_oauth_client_secret: str | None = os.getenv("GOOGLE_OAUTH_CLIENT_SECRET")
     google_oauth_redirect_uri: str = os.getenv(

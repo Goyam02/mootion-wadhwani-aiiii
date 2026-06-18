@@ -28,12 +28,12 @@ def bootstrap_chapters(
 
 
 @router.get("", response_model=list[ChapterListItem])
-def chapters(class_id: str, user=Depends(require_teacher_or_student), db: Session = Depends(get_db)):
+def chapters(class_id: str, user=Depends(require_teacher), db: Session = Depends(get_db)):
     return list_class_chapters(db, user, class_id)
 
 
 @router.get("/{chapter_id}", response_model=ChapterResponse)
-def chapter_detail(class_id: str, chapter_id: str, user=Depends(require_teacher_or_student), db: Session = Depends(get_db)):
+def chapter_detail(class_id: str, chapter_id: str, user=Depends(require_teacher), db: Session = Depends(get_db)):
     return get_class_chapter(db, user, class_id, chapter_id)
 
 

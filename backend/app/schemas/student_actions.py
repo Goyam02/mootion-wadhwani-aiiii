@@ -20,6 +20,7 @@ class StudentAttemptResponse(BaseModel):
 class StudentDoubtCreateRequest(BaseModel):
     class_id: str
     query_text: str
+    topic: str | None = None
     tried_before: bool = False
     attempt_text: str | None = None
 
@@ -39,6 +40,8 @@ class StudentDoubtResponse(BaseModel):
     response_audio_url: str | None
     messages: list[dict] | None = None
     created_at: str
+    teacher_name: str | None = None
+    subject: str | None = None
 
 
 class TeacherDoubtRespondRequest(BaseModel):

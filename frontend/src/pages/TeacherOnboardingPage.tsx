@@ -140,6 +140,7 @@ export function TeacherOnboardingPage() {
       // 2. Store tokens
       localStorage.setItem('mootion_access_token', regRes.access_token);
       localStorage.setItem('mootion_refresh_token', regRes.refresh_token);
+      localStorage.setItem('mootion_role', regRes.role || 'teacher');
 
       // 3. Post preferences
       await api.post('/teachers/onboarding/preferences', {

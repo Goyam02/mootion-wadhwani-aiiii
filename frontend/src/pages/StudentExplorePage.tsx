@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { api } from '../lib/api';
 import { NavItem } from '../components/NavItem';
 import { ChatbotFab } from '../components/ChatbotFab';
 import { EXPLORE_SUBJECTS, ExploreChapter, ExploreSubject, ExploreTopic, ExploreActivity } from '../data/exploreData';
@@ -143,7 +144,7 @@ export function StudentExplorePage() {
             <NavItem icon={<Gamepad2 size={24} />} onClick={() => navigate('/student/playground')} />
           </nav>
 
-          <div className="shrink-0 cursor-pointer flex items-center justify-center group w-12 h-12 rounded-full border-2 border-[#1800ad] bg-[#f6f4ee] relative">
+          <div onClick={() => api.logout()} className="shrink-0 cursor-pointer flex items-center justify-center group w-12 h-12 rounded-full border-2 border-[#1800ad] bg-[#f6f4ee] relative">
             <span className="text-[#1800ad] font-bold text-lg">P</span>
           </div>
         </aside>
@@ -303,7 +304,7 @@ export function StudentExplorePage() {
           <NavItem icon={<Gamepad2 size={24} />} onClick={() => navigate('/student/playground')} />
         </nav>
 
-        <div className="shrink-0 cursor-pointer flex items-center justify-center group w-12 h-12 rounded-full border-2 border-[#1800ad] bg-[#f6f4ee] relative">
+        <div onClick={() => api.logout()} className="shrink-0 cursor-pointer flex items-center justify-center group w-12 h-12 rounded-full border-2 border-[#1800ad] bg-[#f6f4ee] relative">
           <span className="text-[#1800ad] font-bold text-lg">P</span>
         </div>
       </aside>

@@ -204,13 +204,55 @@ def _generate_clarification_video(query_text: str) -> str:
     return "https://www.w3schools.com/html/mov_bbb.mp4"  # Return a high quality fallback explainer video
 
 
+def _to_response(db: Session, d: StudentDoubt, student_name: str) -> StudentDoubtResponse:
+    classroom = db.query(ClassRoom).filter(ClassRoom.id == d.class_id).first()
+    subject = classroom.subject if classroom else "Science"
+    
+    teacher_name = "Assigned Teacher"
+    if classroom:
+        teacher_membership = db.query(TeacherClassMembership).filter(
+            TeacherClassMembership.class_id == classroom.id
+        ).order_by(TeacherClassMembership.is_primary.desc()).first()
+        if teacher_membership:
+            teacher = db.query(User).filter(User.id == teacher_membership.teacher_id).first()
+            if teacher:
+                teacher_name = teacher.full_name
+                if not any(teacher_name.startswith(p) for p in ["Mr.", "Mrs.", "Ms.", "Dr."]):
+                    if "priya" in teacher_name.lower() or "mehta" in teacher_name.lower():
+                        teacher_name = "Mrs. " + teacher_name
+                    elif "sharma" in teacher_name.lower() or "arjun" in teacher_name.lower():
+                        teacher_name = "Mr. " + teacher_name
+                    else:
+                        teacher_name = "Mr. " + teacher_name
+
+    return StudentDoubtResponse(
+        doubt_id=str(d.id),
+        student_id=str(d.student_id),
+        student_name=student_name,
+        class_id=str(d.class_id),
+        topic=d.topic,
+        query_text=d.query_text,
+        tried_before=d.tried_before,
+        attempt_text=d.attempt_text,
+        clarification_video_url=d.clarification_video_url,
+        status=d.status,
+        response_text=d.response_text,
+        response_audio_url=d.response_audio_url,
+        messages=d.messages,
+        created_at=d.created_at.isoformat(),
+        teacher_name=teacher_name,
+        subject=subject,
+    )
+
+
 def submit_student_doubt(
     db: Session,
     student: User,
     class_id: str,
     query_text: str,
-    tried_before: bool,
-    attempt_text: str | None,
+    topic: str | None = None,
+    tried_before: bool = False,
+    attempt_text: str | None = None,
 ) -> StudentDoubtResponse:
     # Check class membership
     membership = db.query(StudentClassMembership).filter(
@@ -221,13 +263,16 @@ def submit_student_doubt(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Student is not a member of this class.")
 
     # Identify Topic via LLM
-    topic = "Science Concept"
-    try:
-        topic_prompt = f"Identify the short 2-4 word science topic name for this student doubt query: \"{query_text}\". Return only the topic name, nothing else."
-        res = query_llm(topic_prompt)
-        topic = res.get("response", "").strip()[:50]
-    except Exception:
-        pass
+    if topic:
+        topic = topic[:50]
+    else:
+        topic = "Science Concept"
+        try:
+            topic_prompt = f"Identify the short 2-4 word science topic name for this student doubt query: \"{query_text}\". Return only the topic name, nothing else."
+            res = query_llm(topic_prompt)
+            topic = res.get("response", "").strip()[:50]
+        except Exception:
+            pass
 
     # Start/Get Clarification Video
     clarification_video = _generate_clarification_video(query_text)
@@ -256,22 +301,7 @@ def submit_student_doubt(
     db.commit()
     db.refresh(doubt)
 
-    return StudentDoubtResponse(
-        doubt_id=str(doubt.id),
-        student_id=str(doubt.student_id),
-        student_name=student.full_name,
-        class_id=str(doubt.class_id),
-        topic=doubt.topic,
-        query_text=doubt.query_text,
-        tried_before=doubt.tried_before,
-        attempt_text=doubt.attempt_text,
-        clarification_video_url=doubt.clarification_video_url,
-        status=doubt.status,
-        response_text=doubt.response_text,
-        response_audio_url=doubt.response_audio_url,
-        messages=doubt.messages,
-        created_at=doubt.created_at.isoformat(),
-    )
+    return _to_response(db, doubt, student.full_name)
 
 
 def list_class_doubts(db: Session, class_id: str) -> list[StudentDoubtResponse]:
@@ -280,24 +310,7 @@ def list_class_doubts(db: Session, class_id: str) -> list[StudentDoubtResponse]:
     for d in doubts:
         student = db.query(User).filter(User.id == d.student_id).first()
         student_name = student.full_name if student else "Anonymous Student"
-        results.append(
-            StudentDoubtResponse(
-                doubt_id=str(d.id),
-                student_id=str(d.student_id),
-                student_name=student_name,
-                class_id=str(d.class_id),
-                topic=d.topic,
-                query_text=d.query_text,
-                tried_before=d.tried_before,
-                attempt_text=d.attempt_text,
-                clarification_video_url=d.clarification_video_url,
-                status=d.status,
-                response_text=d.response_text,
-                response_audio_url=d.response_audio_url,
-                messages=d.messages,
-                created_at=d.created_at.isoformat(),
-            )
-        )
+        results.append(_to_response(db, d, student_name))
     return results
 
 
@@ -307,24 +320,7 @@ def list_student_doubts(db: Session, student_id: str) -> list[StudentDoubtRespon
     for d in doubts:
         student = db.query(User).filter(User.id == d.student_id).first()
         student_name = student.full_name if student else "Anonymous Student"
-        results.append(
-            StudentDoubtResponse(
-                doubt_id=str(d.id),
-                student_id=str(d.student_id),
-                student_name=student_name,
-                class_id=str(d.class_id),
-                topic=d.topic,
-                query_text=d.query_text,
-                tried_before=d.tried_before,
-                attempt_text=d.attempt_text,
-                clarification_video_url=d.clarification_video_url,
-                status=d.status,
-                response_text=d.response_text,
-                response_audio_url=d.response_audio_url,
-                messages=d.messages,
-                created_at=d.created_at.isoformat(),
-            )
-        )
+        results.append(_to_response(db, d, student_name))
     return results
 
 
@@ -342,22 +338,24 @@ def resolve_student_doubt(db: Session, student_id: str, doubt_id: str) -> Studen
     student = db.query(User).filter(User.id == doubt.student_id).first()
     student_name = student.full_name if student else "Anonymous Student"
     
-    return StudentDoubtResponse(
-        doubt_id=str(doubt.id),
-        student_id=str(doubt.student_id),
-        student_name=student_name,
-        class_id=str(doubt.class_id),
-        topic=doubt.topic,
-        query_text=doubt.query_text,
-        tried_before=doubt.tried_before,
-        attempt_text=doubt.attempt_text,
-        clarification_video_url=doubt.clarification_video_url,
-        status=doubt.status,
-        response_text=doubt.response_text,
-        response_audio_url=doubt.response_audio_url,
-        messages=doubt.messages,
-        created_at=doubt.created_at.isoformat(),
-    )
+    return _to_response(db, doubt, student_name)
+
+
+def reopen_student_doubt(db: Session, student_id: str, doubt_id: str) -> StudentDoubtResponse:
+    doubt = db.query(StudentDoubt).filter(StudentDoubt.id == doubt_id).first()
+    if not doubt:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Doubt not found.")
+    if str(doubt.student_id) != student_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You can only reopen your own doubts.")
+    
+    doubt.status = "pending"
+    db.commit()
+    db.refresh(doubt)
+    
+    student = db.query(User).filter(User.id == doubt.student_id).first()
+    student_name = student.full_name if student else "Anonymous Student"
+    
+    return _to_response(db, doubt, student_name)
 
 
 def respond_to_doubt(
@@ -401,22 +399,7 @@ def respond_to_doubt(
     student = db.query(User).filter(User.id == doubt.student_id).first()
     student_name = student.full_name if student else "Anonymous Student"
 
-    return StudentDoubtResponse(
-        doubt_id=str(doubt.id),
-        student_id=str(doubt.student_id),
-        student_name=student_name,
-        class_id=str(doubt.class_id),
-        topic=doubt.topic,
-        query_text=doubt.query_text,
-        tried_before=doubt.tried_before,
-        attempt_text=doubt.attempt_text,
-        clarification_video_url=doubt.clarification_video_url,
-        status=doubt.status,
-        response_text=doubt.response_text,
-        response_audio_url=doubt.response_audio_url,
-        messages=doubt.messages,
-        created_at=doubt.created_at.isoformat(),
-    )
+    return _to_response(db, doubt, student_name)
 
 
 def student_reply_to_doubt(
@@ -447,22 +430,7 @@ def student_reply_to_doubt(
 
     student_name = student.full_name or "Anonymous Student"
 
-    return StudentDoubtResponse(
-        doubt_id=str(doubt.id),
-        student_id=str(doubt.student_id),
-        student_name=student_name,
-        class_id=str(doubt.class_id),
-        topic=doubt.topic,
-        query_text=doubt.query_text,
-        tried_before=doubt.tried_before,
-        attempt_text=doubt.attempt_text,
-        clarification_video_url=doubt.clarification_video_url,
-        status=doubt.status,
-        response_text=doubt.response_text,
-        response_audio_url=doubt.response_audio_url,
-        messages=doubt.messages,
-        created_at=doubt.created_at.isoformat(),
-    )
+    return _to_response(db, doubt, student_name)
 
 
 def resolve_teacher_doubt(db: Session, teacher: User, doubt_id: str) -> StudentDoubtResponse:
@@ -485,22 +453,7 @@ def resolve_teacher_doubt(db: Session, teacher: User, doubt_id: str) -> StudentD
     student = db.query(User).filter(User.id == doubt.student_id).first()
     student_name = student.full_name if student else "Anonymous Student"
     
-    return StudentDoubtResponse(
-        doubt_id=str(doubt.id),
-        student_id=str(doubt.student_id),
-        student_name=student_name,
-        class_id=str(doubt.class_id),
-        topic=doubt.topic,
-        query_text=doubt.query_text,
-        tried_before=doubt.tried_before,
-        attempt_text=doubt.attempt_text,
-        clarification_video_url=doubt.clarification_video_url,
-        status=doubt.status,
-        response_text=doubt.response_text,
-        response_audio_url=doubt.response_audio_url,
-        messages=doubt.messages,
-        created_at=doubt.created_at.isoformat(),
-    )
+    return _to_response(db, doubt, student_name)
 
 
 # --- CUSTOM PLAYGROUND GENERATOR ---

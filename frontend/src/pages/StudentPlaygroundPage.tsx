@@ -35,7 +35,8 @@ import {
   Volume2,
   Layers,
   Bot,
-  ArrowLeft
+  ArrowLeft,
+  Paperclip
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
@@ -362,12 +363,28 @@ export function StudentPlaygroundPage() {
   const [isVoiceRecording, setIsVoiceRecording] = useState(false);
   const [showCommands, setShowCommands] = useState(false);
   const [commandQuery, setCommandQuery] = useState('');
-  const [chatSessions, setChatSessions] = useState<PreSavedSession[]>([]);
-  const [activeSessionId, setActiveSessionId] = useState('');
+  const [chatSessions, setChatSessions] = useState<PreSavedSession[]>([
+    { id: 'sess-1', title: 'Explain electricity', lastMsg: 'Active Buoyant Forces workspace re-loaded...', timestamp: '10 mins ago' },
+    { id: 'sess-2', title: 'Projectile motion', lastMsg: 'Atomic orbits session resumed...', timestamp: '1 hour ago' },
+    { id: 'sess-3', title: 'Chemical reactions', lastMsg: 'Custom Video explanation ready...', timestamp: 'Yesterday' }
+  ]);
+  const [activeSessionId, setActiveSessionId] = useState('sess-1');
   const [hiddenSummoners, setHiddenSummoners] = useState<string[]>([]);
 
   // Conversation state
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    {
+      id: 'msg-s1-1',
+      sender: 'mootion',
+      text: 'Active Buoyant Forces workspace re-loaded. Click the interactive simulation below to test block displacement!',
+      timestamp: 'Just now',
+      payload: {
+        type: 'simulation',
+        title: 'Displacement Lab Sandbox',
+        simulation: { objectDensity: 300, fluidDensity: 1000, objectVolume: 0.12 }
+      }
+    }
+  ]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<HTMLInputElement>(null);
@@ -386,6 +403,21 @@ export function StudentPlaygroundPage() {
   const [playingAudioUrl, setPlayingAudioUrl] = useState<string | null>(null);
   const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
 
+  // Voice capture & speech-to-text
+  const [isFollowUpRecording, setIsFollowUpRecording] = useState<Record<string, boolean>>({});
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Unified Doubt Modal and Selection States
+  const [isNewDoubtModalOpen, setIsNewDoubtModalOpen] = useState(false);
+  const [isNewChatModalOpen, setIsNewChatModalOpen] = useState(false);
+  const [newChatTopic, setNewChatTopic] = useState('');
+  const [newDoubtClassId, setNewDoubtClassId] = useState('');
+  const [newDoubtTopic, setNewDoubtTopic] = useState('');
+  const [newDoubtDescription, setNewDoubtDescription] = useState('');
+  const [selectedDoubtId, setSelectedDoubtId] = useState<string | null>(null);
+  const [showReopenConfirmId, setShowReopenConfirmId] = useState<string | null>(null);
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('all'); // 'all', 'open', 'resolved'
+
   // Gemini Speech-to-Text States
   const [isDoubtRecording, setIsDoubtRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
@@ -396,8 +428,11 @@ export function StudentPlaygroundPage() {
     try {
       const classesData = await api.get('/students/classes');
       setJoinedClasses(classesData);
-      if (classesData.length > 0 && !selectedClassId) {
-        setSelectedClassId(classesData[0].class_id);
+      if (classesData.length > 0) {
+        if (!selectedClassId) {
+          setSelectedClassId(classesData[0].class_id);
+        }
+        setNewDoubtClassId(classesData[0].class_id);
       }
       
       const doubtsData = await api.get('/students/doubts');
@@ -405,6 +440,435 @@ export function StudentPlaygroundPage() {
     } catch (err) {
       console.error("Failed to load student data for doubts:", err);
     }
+  };
+
+  // Re-sync doubts automatically to ensure first doubt selection and latest content
+  useEffect(() => {
+    if (activeWorkspaceTab === 'teacher' && selectedClassId && !selectedDoubtId) {
+      const activeDoubts = studentDoubts.filter(d => d.class_id === selectedClassId);
+      if (activeDoubts.length > 0) {
+        setSelectedDoubtId(activeDoubts[0].doubt_id);
+      }
+    }
+  }, [studentDoubts, selectedClassId, activeWorkspaceTab]);
+
+  const handleCreateNewDoubt = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newDoubtClassId || !newDoubtTopic.trim() || !newDoubtDescription.trim()) {
+      alert("Please fill in all fields.");
+      return;
+    }
+    setIsSubmittingDoubt(true);
+    try {
+      const response = await api.post('/students/doubts', {
+        class_id: newDoubtClassId,
+        topic: newDoubtTopic.trim(),
+        query_text: newDoubtDescription.trim(),
+        tried_before: false,
+        attempt_text: null
+      });
+
+      // Clear fields and close modal
+      setNewDoubtTopic('');
+      setNewDoubtDescription('');
+      setIsNewDoubtModalOpen(false);
+
+      // Refresh doubts from database
+      const doubtsData = await api.get('/students/doubts');
+      setStudentDoubts(doubtsData);
+
+      // Select this class and doubt and switch to teacher tab
+      setSelectedClassId(newDoubtClassId);
+      setSelectedDoubtId(response.doubt_id);
+      setActiveWorkspaceTab('teacher');
+    } catch (err: any) {
+      console.error("Failed to submit doubt:", err);
+      alert(`Error submitting doubt: ${err.detail || err.message}`);
+    } finally {
+      setIsSubmittingDoubt(false);
+    }
+  };
+
+  const handleReopenDoubt = async (doubtId: string) => {
+    try {
+      const updated = await api.post(`/students/doubts/${doubtId}/reopen`);
+      setStudentDoubts(prev => prev.map(d => d.doubt_id === doubtId ? { ...d, status: updated.status, messages: updated.messages } : d));
+      setShowReopenConfirmId(null);
+    } catch (err: any) {
+      console.error("Failed to reopen doubt:", err);
+      alert(`Failed to reopen: ${err.detail || err.message}`);
+    }
+  };
+
+  const toggleFollowUpVoiceRecording = async (doubtId: string) => {
+    if (isFollowUpRecording[doubtId]) {
+      if (mediaRecorderRef.current) {
+        mediaRecorderRef.current.stop();
+        mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+      }
+      setIsFollowUpRecording(prev => ({ ...prev, [doubtId]: false }));
+    } else {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const mediaRecorder = new MediaRecorder(stream);
+        mediaRecorderRef.current = mediaRecorder;
+        audioChunksRef.current = [];
+
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data.size > 0) {
+            audioChunksRef.current.push(e.data);
+          }
+        };
+
+        mediaRecorder.onstop = async () => {
+          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+          setIsTranscribing(true);
+          try {
+            const transcription = await transcribeAudioWithGemini(audioBlob);
+            if (transcription) {
+              setFollowUpTexts(prev => ({
+                ...prev,
+                [doubtId]: (prev[doubtId] || '') + ' ' + transcription
+              }));
+            }
+          } catch (err) {
+            console.error("Transcription error:", err);
+            alert("Failed to transcribe voice. Make sure microphone permission is enabled.");
+          } finally {
+            setIsTranscribing(false);
+          }
+        };
+
+        mediaRecorder.start();
+        setIsFollowUpRecording(prev => ({ ...prev, [doubtId]: true }));
+      } catch (err) {
+        console.error("Recording failed to start:", err);
+        alert("Failed to access microphone.");
+      }
+    }
+  };
+
+  const handleAttachmentUpload = (e: React.ChangeEvent<HTMLInputElement>, doubtId: string) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const fileName = e.target.files[0].name;
+      setFollowUpTexts(prev => ({
+        ...prev,
+        [doubtId]: (prev[doubtId] || '') + ` [Attached file: ${fileName}]`
+      }));
+    }
+  };
+
+  const [isModalVoiceRecording, setIsModalVoiceRecording] = useState(false);
+  
+  const toggleModalVoiceRecording = async () => {
+    if (isModalVoiceRecording) {
+      if (mediaRecorderRef.current) {
+        mediaRecorderRef.current.stop();
+        mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+      }
+      setIsModalVoiceRecording(false);
+    } else {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const mediaRecorder = new MediaRecorder(stream);
+        mediaRecorderRef.current = mediaRecorder;
+        audioChunksRef.current = [];
+
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data.size > 0) {
+            audioChunksRef.current.push(e.data);
+          }
+        };
+
+        mediaRecorder.onstop = async () => {
+          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+          setIsTranscribing(true);
+          try {
+            const transcription = await transcribeAudioWithGemini(audioBlob);
+            if (transcription) {
+              setNewDoubtDescription(prev => (prev || '') + ' ' + transcription);
+            }
+          } catch (err) {
+            console.error("Transcription error:", err);
+            alert("Failed to transcribe voice. Make sure microphone permission is enabled.");
+          } finally {
+            setIsTranscribing(false);
+          }
+        };
+
+        mediaRecorder.start();
+        setIsModalVoiceRecording(true);
+      } catch (err) {
+        console.error("Recording failed to start:", err);
+        alert("Failed to access microphone.");
+      }
+    }
+  };
+
+  const getStatusPill = (status: string) => {
+    let text = status.toUpperCase();
+    if (text === 'PENDING') text = 'OPEN';
+
+    let bg = 'bg-blue-50/50';
+    let border = 'border-blue-200/60';
+    let textColor = 'text-blue-700';
+
+    if (text === 'RESOLVED') {
+      bg = 'bg-emerald-50/50';
+      border = 'border-emerald-200/60';
+      textColor = 'text-emerald-700';
+    } else if (text === 'RESPONDED') {
+      bg = 'bg-purple-50/50';
+      border = 'border-purple-200/60';
+      textColor = 'text-purple-700';
+    } else if (text === 'ACTIVE') {
+      bg = 'bg-amber-50/50';
+      border = 'border-amber-200/60';
+      textColor = 'text-amber-700';
+    } else if (text === 'OPEN') {
+      bg = 'bg-blue-50/50';
+      border = 'border-blue-200/60';
+      textColor = 'text-blue-700';
+    }
+
+    return (
+      <span className={`px-2 py-0.5 rounded-full border text-[9px] font-bold tracking-wider uppercase select-none ${bg} ${border} ${textColor}`}>
+        {text}
+      </span>
+    );
+  };
+
+  const renderUnifiedSidebarContents = (isMobile: boolean) => {
+    // Show all teacher doubts (no class or status filtering)
+    const filteredTeacherDoubts = studentDoubts;
+
+    const handleDoubtClick = (doubtId: string) => {
+      setSelectedDoubtId(doubtId);
+      setActiveWorkspaceTab('teacher');
+      if (isMobile) {
+        setIsMobileHistoryOpen(false);
+      }
+    };
+
+    const handleSessionClick = (sess: PreSavedSession) => {
+      handlePreSessionOpen(sess);
+      setActiveWorkspaceTab('mootion');
+      if (isMobile) {
+        setIsMobileHistoryOpen(false);
+      }
+    };
+
+    const triggerNewDoubtModal = () => {
+      if (joinedClasses.length > 0 && !newDoubtClassId) {
+        setNewDoubtClassId(joinedClasses[0].class_id);
+      }
+      setIsNewDoubtModalOpen(true);
+      if (isMobile) {
+        setIsMobileHistoryOpen(false);
+      }
+    };
+
+    const triggerNewChatModal = () => {
+      setNewChatTopic('');
+      setIsNewChatModalOpen(true);
+      if (isMobile) {
+        setIsMobileHistoryOpen(false);
+      }
+    };
+
+    return (
+      <div className="flex flex-col h-full font-montserrat justify-between">
+        <div className="flex flex-col gap-3 shrink-0">
+          <div className="flex items-center justify-between border-b border-[#1800ad]/20 pb-3 select-none">
+            <span className="font-black text-xs text-[#1800ad] uppercase tracking-widest">Doubts & History</span>
+          </div>
+
+          {/* Mode Selector Toggle Segmented rounded pill */}
+          <div className="bg-[#1800ad]/5 rounded-2xl p-1 border border-[#1800ad]/15 flex items-center relative overflow-hidden select-none">
+            <button
+              type="button"
+              onClick={() => setActiveWorkspaceTab('mootion')}
+              className={`flex-1 text-center py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-200 ${
+                activeWorkspaceTab === 'mootion'
+                  ? 'bg-[#1800ad] text-[#f6f4ee] shadow-sm'
+                  : 'text-[#1800ad]/60 hover:text-[#1800ad]'
+              }`}
+            >
+              Mootion AI
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveWorkspaceTab('teacher')}
+              className={`flex-1 text-center py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-200 ${
+                activeWorkspaceTab === 'teacher'
+                  ? 'bg-[#1800ad] text-[#f6f4ee] shadow-sm'
+                  : 'text-[#1800ad]/60 hover:text-[#1800ad]'
+              }`}
+            >
+              Teacher
+            </button>
+          </div>
+
+          {/* Contextual Action Button */}
+          <div className="relative overflow-hidden shrink-0">
+            {activeWorkspaceTab === 'mootion' ? (
+              <button 
+                type="button"
+                onClick={triggerNewChatModal}
+                className="w-full bg-[#1800ad] hover:opacity-95 text-[#f6f4ee] uppercase font-montserrat font-black text-xs py-4 rounded-[18px] transition-all shadow-md active:scale-95 flex items-center justify-center gap-1.5 border border-[#1800ad] tracking-wider"
+              >
+                <Plus size={16} /> New Chat
+              </button>
+            ) : (
+              <button 
+                type="button"
+                onClick={triggerNewDoubtModal}
+                className="w-full bg-[#1800ad] hover:opacity-95 text-[#f6f4ee] uppercase font-montserrat font-black text-xs py-4 rounded-[18px] transition-all shadow-md active:scale-95 flex items-center justify-center gap-1.5 border border-[#1800ad] tracking-wider"
+              >
+                <Plus size={16} /> New Doubt
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Unified Scrollable Conversation List */}
+        <div className="flex-1 overflow-y-auto mt-4 pr-1 relative custom-scrollbar min-h-0">
+          <AnimatePresence mode="wait">
+            {activeWorkspaceTab === 'mootion' ? (
+              <motion.div
+                key="mootion-list"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+                className="flex flex-col gap-1.5"
+              >
+                {chatSessions.map((sess) => {
+                  const isActive = activeSessionId === sess.id && activeWorkspaceTab === 'mootion';
+                  return (
+                    <button
+                      key={sess.id}
+                      onClick={() => handleSessionClick(sess)}
+                      className={`p-3 rounded-xl text-left transition-all border text-xs flex flex-col gap-0.5 relative overflow-hidden ${
+                        isActive 
+                          ? 'bg-[#1800ad] border-transparent text-[#f6f4ee] font-extrabold shadow-sm' 
+                          : 'bg-white border-[#1800ad]/10 hover:border-[#1800ad]/25 text-[#1800ad]'
+                      }`}
+                    >
+                      <div className="font-black truncate uppercase tracking-wide">{sess.title}</div>
+                      <div className={`text-[10px] truncate ${isActive ? 'text-[#f6f4ee]/75' : 'text-[#1800ad]/60'}`}>
+                        {sess.lastMsg}
+                      </div>
+                    </button>
+                  );
+                })}
+              </motion.div>
+            ) : (
+              <motion.div
+                key="teacher-list"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+                className="flex flex-col gap-2"
+              >
+                {filteredTeacherDoubts.length === 0 ? (
+                  <div className="py-8 flex flex-col items-center justify-center text-[#1800ad]/30 select-none text-center px-2">
+                    <span className="text-[10px] font-black tracking-wider leading-relaxed">
+                      No doubts found
+                    </span>
+                  </div>
+                ) : (
+                  filteredTeacherDoubts.map((doubt) => {
+                    const isActive = selectedDoubtId === doubt.doubt_id && activeWorkspaceTab === 'teacher';
+                    const doubtClass = joinedClasses.find(c => c.class_id === doubt.class_id);
+                    const isResolved = doubt.status.toLowerCase() === 'resolved';
+                    const isResponded = doubt.status.toLowerCase() === 'responded';
+                    
+                    const msgs = doubt.messages || [];
+                    const lastMsg = msgs[msgs.length - 1];
+                    let unreadCount = 0;
+                    if (!isActive) {
+                      for (let idx = msgs.length - 1; idx >= 0; idx--) {
+                        if (msgs[idx].sender === 'teacher') {
+                          unreadCount++;
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    const hasUnread = unreadCount > 0;
+
+                    let statusText = 'OPEN';
+                    if (isResolved) statusText = 'RESOLVED';
+                    else if (isResponded) statusText = 'RESPONDED';
+
+                    let pillBg = 'bg-blue-50/50';
+                    let pillBorder = 'border-blue-200/60';
+                    let pillText = 'text-blue-700';
+
+                    if (statusText === 'RESOLVED') {
+                      pillBg = 'bg-emerald-50/50';
+                      pillBorder = 'border-emerald-200/60';
+                      pillText = 'text-emerald-700';
+                    } else if (statusText === 'RESPONDED') {
+                      pillBg = 'bg-purple-50/50';
+                      pillBorder = 'border-purple-200/60';
+                      pillText = 'text-purple-700';
+                    }
+
+                    const teacherName = doubt.teacher_name || "Assigned Teacher";
+                    const subject = doubt.subject || (doubtClass ? doubtClass.subject : "Science");
+
+                    return (
+                      <button
+                        key={doubt.doubt_id}
+                        onClick={() => handleDoubtClick(doubt.doubt_id)}
+                        className={`p-3.5 rounded-2xl text-left transition-all border text-xs flex flex-col gap-1.5 relative overflow-hidden ${
+                          isActive 
+                            ? 'bg-[#1800ad] border-transparent text-[#f6f4ee] font-extrabold shadow-md' 
+                            : 'bg-white border-[#1800ad]/10 hover:border-[#1800ad]/25 text-[#1800ad]'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between pr-4">
+                          <span className="font-black truncate uppercase tracking-wider text-[11px] max-w-[85%]">
+                            {doubt.topic || doubt.query_text}
+                          </span>
+                        </div>
+
+                        <div className={`text-[10px] font-bold ${isActive ? 'text-[#f6f4ee]/80' : 'text-[#1800ad]/60'}`}>
+                          {teacherName} • {subject}
+                        </div>
+
+                        <p className={`text-[10px] truncate ${isActive ? 'text-[#f6f4ee]/70' : 'text-[#1800ad]/50'} italic`}>
+                          {lastMsg ? lastMsg.text : doubt.query_text}
+                        </p>
+
+                        <div className="flex items-center justify-between mt-1 text-[9px] font-bold">
+                          <div className="flex items-center gap-1.5">
+                            <span className={`px-1.5 py-0.5 rounded-full border text-[8px] font-black uppercase ${pillBg} ${pillBorder} ${pillText}`}>
+                              {statusText}
+                            </span>
+                            {hasUnread && (
+                              <span className="text-[8px] font-extrabold text-red-655 tracking-wider">
+                                {unreadCount} UNREAD
+                              </span>
+                            )}
+                          </div>
+                          <span className={`font-mono text-[8px] ${isActive ? 'text-[#f6f4ee]/50' : 'text-[#1800ad]/40'}`}>
+                            {new Date(doubt.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
+    );
   };
 
   useEffect(() => {
@@ -1652,7 +2116,7 @@ export function StudentPlaygroundPage() {
           <NavItem icon={<Compass size={24} />} onClick={() => navigate('/student/explore')} />
           <NavItem icon={<Gamepad2 size={24} />} active onClick={() => navigate('/student/playground')} />
         </nav>
-        <div className="shrink-0 cursor-pointer flex items-center justify-center w-12 h-12 rounded-full border-2 border-[#1800ad] bg-[#f6f4ee] hover:opacity-90 transition-all shadow-sm">
+        <div onClick={() => api.logout()} className="shrink-0 cursor-pointer flex items-center justify-center w-12 h-12 rounded-full border-2 border-[#1800ad] bg-[#f6f4ee] hover:opacity-90 transition-all shadow-sm">
           <span className="text-[#1800ad] font-bold text-lg">P</span>
         </div>
       </aside>
@@ -1699,51 +2163,9 @@ export function StudentPlaygroundPage() {
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="lg:hidden fixed top-0 bottom-0 left-0 w-[280px] bg-[#f6f4ee] border-r border-[#1800ad]/30 text-[#1800ad] p-5 z-50 flex flex-col justify-between font-montserrat"
+              className="lg:hidden fixed top-0 bottom-0 left-0 w-[320px] bg-[#f6f4ee] border-r border-[#1800ad]/30 text-[#1800ad] p-5 z-50 flex flex-col justify-between font-montserrat"
             >
-              <div className="flex flex-col h-full gap-4 font-montserrat">
-                <div className="flex items-center justify-between pb-3 border-b border-[#1800ad]/20 font-montserrat">
-                  <span className="font-extrabold text-[#1800ad] uppercase tracking-widest text-[11px] font-montserrat">Sessions & History</span>
-                  <button onClick={() => setIsMobileHistoryOpen(false)} className="p-1 hover:bg-[#1800ad]/10 rounded-full text-[#1800ad]">
-                    <X size={18} />
-                  </button>
-                </div>
-
-                <button 
-                  onClick={() => { handleStartNewSession(); setIsMobileHistoryOpen(false); }}
-                  className="w-full bg-[#f6f4ee] text-[#1800ad] hover:bg-[#1800ad]/5 py-3 px-4 rounded-full font-black text-xs transition-all uppercase tracking-wider flex items-center justify-center gap-2 border border-[#1800ad] font-montserrat"
-                >
-                  <Plus size={16} /> New Explorer Chat
-                </button>
-
-                <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-2 mt-2 font-montserrat">
-                  {chatSessions.length === 0 ? (
-                    <div className="flex-1 flex flex-col items-center justify-center text-[#1800ad]/30 gap-2 font-montserrat">
-                      <span className="font-montserrat text-[10px] font-black">NO_CHATS_FOUND</span>
-                    </div>
-                  ) : (
-                    chatSessions.map((sess) => (
-                      <button
-                        key={sess.id}
-                        onClick={() => { handlePreSessionOpen(sess); setIsMobileHistoryOpen(false); }}
-                        className={`p-3.5 rounded-2xl text-left transition-all border font-montserrat ${
-                          activeSessionId === sess.id 
-                            ? 'bg-[#1800ad] text-[#f6f4ee] border-transparent font-black shadow-md font-montserrat' 
-                            : 'bg-transparent border-[#1800ad]/15 hover:bg-[#1800ad]/5 text-[#1800ad] font-montserrat'
-                        }`}
-                      >
-                        <div className="font-extrabold truncate text-xs uppercase font-montserrat">{sess.title}</div>
-                        <div className={`text-[10px] truncate mt-1 font-montserrat ${activeSessionId === sess.id ? 'text-[#f6f4ee]/75' : 'text-[#1800ad]/60'}`}>
-                          {sess.lastMsg}
-                        </div>
-                        <div className={`text-[9px] font-montserrat mt-1 text-right ${activeSessionId === sess.id ? 'text-[#f6f4ee]/50' : 'text-[#1800ad]/40'}`}>
-                          {sess.timestamp}
-                        </div>
-                      </button>
-                    ))
-                  )}
-                </div>
-              </div>
+              {renderUnifiedSidebarContents(true)}
             </motion.div>
           </>
         )}
@@ -1753,108 +2175,67 @@ export function StudentPlaygroundPage() {
       <div className="flex-1 flex gap-4 overflow-hidden pt-1 px-3 pb-3 lg:pt-1.5 lg:px-5 lg:pb-5 bg-[#f6f4ee] relative">
         
         {/* ========================================================
-            COLUMN 1 (LHS): Previous Sessions List & Controls
+            COLUMN 1 (LHS): Unified Previous Sessions & Doubts List
            ======================================================== */}
         {isDesktopHistoryOpen && (
-          <section className="hidden lg:flex w-[285px] border-2 border-[#1800ad] rounded-[28px] p-5 flex-col shrink-0 bg-[#f6f4ee] justify-between h-full font-montserrat">
-            <div className="flex flex-col h-full font-montserrat">
-              
-              <div className="flex flex-col gap-4 font-montserrat">
-                <div className="flex items-center justify-between border-b border-[#1800ad]/20 pb-3 font-montserrat">
-                  <span className="font-black text-xs text-[#1800ad] uppercase tracking-widest font-montserrat">Sessions & History</span>
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#1800ad] animate-pulse"></span>
-                </div>
-
-                {/* Solid pillow NEW CHAT button matching neon shape from screenshot */}
-                <button 
-                  onClick={handleStartNewSession}
-                  className="w-full bg-[#f6f4ee] hover:bg-[#1800ad]/5 text-[#1800ad] uppercase font-montserrat font-black text-xs py-4 rounded-[18px] transition-all shadow-md active:scale-95 flex items-center justify-center gap-1.5 border-2 border-[#1800ad] tracking-wider"
-                >
-                  <Plus size={16} /> New Chat
-                </button>
-
-                {/* Chat List list / NO_CHATS_FOUND */}
-                <div className="flex flex-col gap-2.5 mt-2 max-h-[500px] overflow-y-auto custom-scrollbar font-montserrat">
-                  {chatSessions.length === 0 ? (
-                    <div className="py-20 flex flex-col items-center justify-center text-[#1800ad]/30 gap-2 select-none font-montserrat">
-                      <span className="font-montserrat text-xs font-black tracking-widest">NO_CHATS_FOUND</span>
-                    </div>
-                  ) : (
-                    chatSessions.map((sess) => (
-                      <button
-                        key={sess.id}
-                        onClick={() => handlePreSessionOpen(sess)}
-                        className={`p-3.5 rounded-2xl text-left transition-all border text-xs flex flex-col gap-1 relative overflow-hidden font-montserrat ${
-                          activeSessionId === sess.id 
-                            ? 'bg-[#1800ad] border-transparent text-[#f6f4ee] font-extrabold shadow-md font-montserrat' 
-                            : 'bg-transparent border-[#1800ad]/15 hover:border-[#1800ad]/30 text-[#1800ad] font-montserrat'
-                        }`}
-                      >
-                        <div className="font-black truncate uppercase font-montserrat tracking-wide">{sess.title}</div>
-                        <div className={`text-[10px] truncate font-montserrat ${activeSessionId === sess.id ? 'text-[#f6f4ee]/75' : 'text-[#1800ad]/60'}`}>
-                          {sess.lastMsg}
-                        </div>
-                        <div className={`text-[9px] font-montserrat mt-1 text-right ${activeSessionId === sess.id ? 'text-[#f6f4ee]/50' : 'text-[#1800ad]/40'}`}>
-                          {sess.timestamp}
-                        </div>
-                      </button>
-                    ))
-                  )}
-                </div>
-              </div>
-
-            </div>
+          <section className="hidden lg:flex w-[320px] border-2 border-[#1800ad] rounded-[28px] p-5 flex-col shrink-0 bg-[#f6f4ee] justify-between h-full font-montserrat">
+            {renderUnifiedSidebarContents(false)}
           </section>
         )}
 
         {/* ========================================================
             COLUMN 2 (CENTER): Main Conversational play arena
-           ================        {/* ========================================================
-            COLUMN 2 (CENTER): Main Conversational play arena
            ======================================================== */}
         <section className="flex-1 flex flex-col border-2 border-[#1800ad] rounded-[28px] bg-[#f6f4ee] p-4 h-full overflow-hidden relative justify-between font-montserrat">
           
-          {/* Active Header inside Sandbox Compartment wrapper */}
-          <div className="border-b border-[#1800ad]/20 pb-3 flex items-center justify-between bg-[#f6f4ee] font-montserrat">
-            <div className="flex items-center gap-2">
+          {/* Unified Chat Header */}
+          <div className="border-b border-[#1800ad]/20 pb-3 flex items-center justify-between bg-[#f6f4ee] font-montserrat shrink-0 select-none">
+            <div className="flex items-center gap-2.5">
               <button 
                 onClick={() => setIsMobileHistoryOpen(!isMobileHistoryOpen)}
                 className="lg:hidden p-1.5 text-[#1800ad] hover:bg-[#1800ad]/10 transition-all flex items-center justify-center mr-1"
                 title="Toggle Sessions History"
               >
-                <Menu size={14} />
+                <Menu size={16} />
               </button>
               
-              {/* Tab Selector Buttons */}
-              <div className="flex bg-[#1800ad]/5 rounded-full p-1 border border-[#1800ad]/15">
-                <button
-                  type="button"
-                  onClick={() => setActiveWorkspaceTab('mootion')}
-                  className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wider transition-all ${
-                    activeWorkspaceTab === 'mootion'
-                      ? 'bg-[#1800ad] text-[#f6f4ee] shadow-sm'
-                      : 'text-[#1800ad]/60 hover:text-[#1800ad]'
-                  }`}
-                >
-                  Mootion
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveWorkspaceTab('teacher')}
-                  className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wider transition-all ${
-                    activeWorkspaceTab === 'teacher'
-                      ? 'bg-[#1800ad] text-[#f6f4ee] shadow-sm'
-                      : 'text-[#1800ad]/60 hover:text-[#1800ad]'
-                  }`}
-                >
-                  Teacher
-                </button>
-              </div>
+              {activeWorkspaceTab === 'mootion' ? (() => {
+                const currentSession = chatSessions.find(s => s.id === activeSessionId);
+                const titleText = currentSession ? currentSession.title : "Mootion Workspace";
+                return (
+                  <div>
+                    <h4 className="font-black text-xs sm:text-sm text-[#1800ad] uppercase tracking-wide leading-tight">
+                      {titleText.toUpperCase()}
+                    </h4>
+                    <span className="text-[9px] font-bold text-[#1800ad]/50 uppercase tracking-wider leading-none mt-0.5 block">
+                      Mootion AI Conversation
+                    </span>
+                  </div>
+                );
+              })() : (() => {
+                const selectedDoubt = studentDoubts.find(d => d.doubt_id === selectedDoubtId);
+                if (!selectedDoubt) return null;
+                const teacherName = selectedDoubt.teacher_name || "Assigned Teacher";
+                const subject = selectedDoubt.subject || "Science";
+                return (
+                  <div>
+                    <h4 className="font-black text-xs sm:text-sm text-[#1800ad] uppercase tracking-wide leading-tight">
+                      {(selectedDoubt.topic || selectedDoubt.query_text).toUpperCase()}
+                    </h4>
+                    <span className="text-[9px] font-bold text-[#1800ad]/50 uppercase tracking-wider leading-none mt-0.5 block">
+                      {teacherName} • {subject}
+                    </span>
+                  </div>
+                );
+              })()}
             </div>
 
-            <span className="text-[8px] bg-[#1800ad]/10 text-[#1800ad] font-bold tracking-widest uppercase py-1 px-3 rounded-full border border-[#1800ad]/20 font-montserrat">
-              {activeWorkspaceTab === 'mootion' ? 'Interactive AI' : 'Teacher Hub'}
-            </span>
+            {/* Right side of header: Status badge (if Teacher selected) */}
+            {activeWorkspaceTab === 'teacher' && (() => {
+              const selectedDoubt = studentDoubts.find(d => d.doubt_id === selectedDoubtId);
+              if (!selectedDoubt) return null;
+              return getStatusPill(selectedDoubt.status);
+            })()}
           </div>
 
           {activeWorkspaceTab === 'mootion' ? (
@@ -2114,221 +2495,209 @@ export function StudentPlaygroundPage() {
                 </form>
               </div>
             </>
-          ) : (
-            <>
-              {/* Subject selector at the top */}
-              <div className="py-2.5 flex flex-wrap gap-2 border-b border-[#1800ad]/10">
-                {joinedClasses.map((cls) => (
-                  <button
-                    key={cls.class_id}
-                    type="button"
-                    onClick={() => setSelectedClassId(cls.class_id)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wider transition-all border ${
-                      selectedClassId === cls.class_id
-                        ? 'bg-[#1800ad] text-[#f6f4ee] border-[#1800ad]'
-                        : 'bg-transparent text-[#1800ad]/60 border-[#1800ad]/20 hover:bg-[#1800ad]/5 hover:text-[#1800ad]'
-                    }`}
-                  >
-                    {cls.subject} ({cls.display_name})
-                  </button>
-                ))}
-              </div>
-
-              {/* Doubts List filtered by selectedClassId */}
-              <div 
-                id="student-doubts-list-container"
-                className="flex-1 overflow-y-auto my-3 pr-1.5 flex flex-col gap-3 custom-scrollbar"
-              >
-                {studentDoubts.filter(d => d.class_id === selectedClassId).length === 0 ? (
-                  <div className="flex-1 flex flex-col items-center justify-center text-[#1800ad]/35 gap-2 my-auto text-center p-6">
-                    <MessageSquare size={36} className="text-[#1800ad]/30" />
-                    <span className="font-montserrat text-xs font-black tracking-widest text-[#1800ad]/55 uppercase block">
-                      No doubts yet for this subject. Ask one below.
-                    </span>
+          ) : (() => {
+            // Find selected doubt
+            const selectedDoubt = studentDoubts.find(d => d.doubt_id === selectedDoubtId);
+            
+            if (!selectedDoubt) {
+              // Empty state
+              return (
+                <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-[#1800ad]">
+                  <div className="w-20 h-20 bg-[#1800ad]/5 border-2 border-dashed border-[#1800ad]/30 rounded-full flex items-center justify-center text-[#1800ad]/40 mb-4 animate-pulse">
+                    <MessageSquare size={36} />
                   </div>
-                ) : (
-                  studentDoubts
-                    .filter(d => d.class_id === selectedClassId)
-                    .map((doubt) => {
-                      const isResolved = doubt.status.toLowerCase() === 'resolved';
-                      const hasReply = !!doubt.response_text || doubt.status.toLowerCase() === 'responded';
-                      return (
-                        <div 
-                          key={doubt.doubt_id}
-                          className="p-4 rounded-[22px] bg-white border-2 border-[#1800ad]/15 text-left flex flex-col gap-2 relative overflow-hidden"
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="text-[9px] font-black uppercase tracking-widest text-[#1800ad]/55">
-                              Doubt ID: {doubt.doubt_id.substring(0, 8)}
-                            </span>
-                            <span className={`text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border ${
-                              doubt.status.toLowerCase() === 'resolved'
-                                ? 'bg-emerald-100 border-emerald-250 text-emerald-800'
-                                : doubt.status.toLowerCase() === 'responded'
-                                ? 'bg-blue-100 border-blue-250 text-blue-800'
-                                : 'bg-red-100 border-red-250 text-red-800'
-                            }`}>
-                              {doubt.status.toLowerCase() === 'resolved' ? 'Resolved' : doubt.status.toLowerCase() === 'responded' ? 'Responded' : 'Pending'}
-                            </span>
-                          </div>
+                  <h3 className="font-extrabold text-base uppercase tracking-wider">Ask your teacher anything</h3>
+                  <p className="text-xs font-medium text-[#1800ad]/60 max-w-xs leading-relaxed mt-1 mb-5">
+                    Start a doubt to get personalized, direct feedback from your class teacher.
+                  </p>
+                  <button
+                    onClick={() => {
+                      if (joinedClasses.length > 0) {
+                        setNewDoubtClassId(joinedClasses[0].class_id);
+                      }
+                      setIsNewDoubtModalOpen(true);
+                    }}
+                    className="px-6 py-3 bg-[#1800ad] hover:opacity-95 text-[#f6f4ee] font-black uppercase text-xs tracking-wider rounded-xl transition-all shadow active:scale-95 flex items-center gap-1.5"
+                  >
+                    <Plus size={14} /> New Doubt
+                  </button>
+                </div>
+              );
+            }
+
+            const isResolved = selectedDoubt.status.toLowerCase() === 'resolved';
+            const isResponded = selectedDoubt.status.toLowerCase() === 'responded';
+            const messagesList = selectedDoubt.messages || [
+              {
+                id: 'init',
+                sender: 'student',
+                text: selectedDoubt.query_text,
+                timestamp: 'Just now'
+              }
+            ];
+
+            return (
+              <div className="flex-1 flex flex-col justify-between h-full overflow-hidden mt-3">
+
+
+                {/* Question Info card if present (attempt description) */}
+                {selectedDoubt.tried_before && selectedDoubt.attempt_text && (
+                  <div className="mb-3 p-3 bg-amber-50/40 text-amber-900 border border-amber-250/60 rounded-2xl shrink-0 text-left">
+                    <span className="text-[8px] font-black uppercase tracking-wider text-amber-800">Your description of what you tried:</span>
+                    <p className="text-xs font-medium italic mt-0.5 leading-relaxed">"{selectedDoubt.attempt_text}"</p>
+                  </div>
+                )}
+
+                {/* Chat Message Bubble History */}
+                <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-3.5 my-2 custom-scrollbar">
+                  {messagesList.map((msg: any, mIdx: number) => {
+                    const isStudent = msg.sender === 'student';
+                    return (
+                      <div
+                        key={msg.id || mIdx}
+                        className={`flex flex-col gap-1 max-w-[80%] ${isStudent ? 'self-end items-end text-right' : 'self-start items-start text-left'}`}
+                      >
+                        <div className="flex items-center gap-1.5 text-[8px] font-black uppercase tracking-wider text-[#1800ad]/45">
+                          <span>{isStudent ? 'You' : 'Teacher'}</span>
+                        </div>
+                        
+                        <div className={`p-3.5 rounded-[22px] text-xs sm:text-sm font-semibold leading-relaxed relative ${
+                          isStudent 
+                            ? 'bg-[#1800ad] text-[#f6f4ee] rounded-tr-none' 
+                            : 'bg-white text-[#1800ad] border-2 border-[#1800ad]/15 rounded-tl-none'
+                        }`}>
+                          {msg.text}
                           
-                          <p className="text-xs sm:text-sm font-semibold text-[#1800ad] leading-relaxed">
-                            {doubt.query_text}
-                          </p>
-                          
-                          {/* Messages History */}
-                          {doubt.messages && doubt.messages.length > 0 ? (
-                            <div className="mt-3 p-3 bg-[#1800ad]/5 border border-[#1800ad]/10 rounded-xl flex flex-col gap-3 max-h-[200px] overflow-y-auto custom-scrollbar">
-                              {doubt.messages.map((msg: any, mIdx: number) => {
-                                const isMe = msg.sender === 'student';
-                                return (
-                                  <div 
-                                    key={msg.id || mIdx}
-                                    className={`flex flex-col gap-0.5 max-w-[85%] ${isMe ? 'self-end items-end' : 'self-start'}`}
-                                  >
-                                    <span className="text-[7px] font-black uppercase tracking-wider text-[#1800ad]/50">
-                                      {isMe ? 'You' : 'Teacher'}
-                                    </span>
-                                    <div className={`p-2 rounded-xl text-xs font-semibold leading-normal ${
-                                      isMe
-                                        ? 'bg-[#1800ad] text-[#f6f4ee] rounded-tr-none'
-                                        : 'bg-[#f6f4ee] text-[#1800ad] border border-[#1800ad]/15 rounded-tl-none'
-                                    }`}>
-                                      {msg.text}
-                                    </div>
-                                    {!isMe && msg.audio_url && (
-                                      <button
-                                        type="button"
-                                        onClick={() => handlePlayAudio(msg.audio_url)}
-                                        className="mt-0.5 flex items-center gap-1 self-start px-2 py-0.5 bg-[#1800ad] text-[#f6f4ee] rounded-full text-[8px] font-black uppercase tracking-wider"
-                                      >
-                                        Play Voice Note
-                                      </button>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          ) : (
-                            /* Fallback to legacy single response reply box */
-                            hasReply && doubt.response_text && (
-                              <div className="mt-2 p-3 bg-[#1800ad]/10 border border-[#1800ad]/20 rounded-xl flex flex-col gap-1.5">
-                                <span className="text-[8px] font-black uppercase tracking-wider text-[#1800ad]/60">Teacher's Reply:</span>
-                                <p className="text-xs font-semibold text-[#1800ad] leading-relaxed">
-                                  {doubt.response_text}
-                                </p>
-                                
-                                {doubt.response_audio_url && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handlePlayAudio(doubt.response_audio_url)}
-                                    className="mt-1 flex items-center gap-1.5 self-start px-3 py-1.5 bg-[#1800ad] text-[#f6f4ee] rounded-full text-[9px] font-black uppercase tracking-wider transition-all hover:scale-[1.03] active:scale-95"
-                                  >
-                                    <Play size={10} className="fill-current" />
-                                    {playingAudioUrl === doubt.response_audio_url ? 'Pause Audio' : 'Play Voice Note'}
-                                  </button>
-                                )}
-                              </div>
-                            )
-                          )}
-                          
-                          {/* Resolve and Reply controls */}
-                          {!isResolved && (
-                            <div className="mt-2 flex flex-col gap-2 pt-2 border-t border-[#1800ad]/10">
-                              <div className="flex gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => handleResolveDoubt(doubt.doubt_id)}
-                                  className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-[#f6f4ee] rounded-full text-[9px] font-black uppercase tracking-wider transition-all hover:scale-[1.02] active:scale-95 shadow-sm"
-                                >
-                                  Mark as Resolved
-                                </button>
-                              </div>
-                              
-                              {/* Reply Form */}
-                              <form 
-                                onSubmit={(e) => { e.preventDefault(); handleSendFollowUp(doubt.doubt_id); }}
-                                className="flex gap-2 items-center mt-1"
-                              >
-                                <input
-                                  type="text"
-                                  placeholder="Type reply to teacher..."
-                                  value={followUpTexts[doubt.doubt_id] || ''}
-                                  onChange={(e) => setFollowUpTexts(prev => ({ ...prev, [doubt.doubt_id]: e.target.value }))}
-                                  disabled={submittingFollowUpIds[doubt.doubt_id]}
-                                  className="flex-1 bg-[#f6f4ee] text-[#1800ad] placeholder:text-[#1800ad]/40 border border-[#1800ad]/30 rounded-xl px-3 py-1.5 text-xs focus:outline-none font-semibold"
-                                />
-                                <button
-                                  type="submit"
-                                  disabled={submittingFollowUpIds[doubt.doubt_id] || !(followUpTexts[doubt.doubt_id] || '').trim()}
-                                  className="bg-[#1800ad] hover:opacity-90 text-[#f6f4ee] rounded-xl px-3 py-1.5 text-[9px] font-black uppercase tracking-wider disabled:opacity-40"
-                                >
-                                  {submittingFollowUpIds[doubt.doubt_id] ? 'Sending...' : 'Send'}
-                                </button>
-                              </form>
-                            </div>
+                          {/* Play voice note inside bubble if present */}
+                          {!isStudent && msg.audio_url && (
+                            <button
+                              type="button"
+                              onClick={() => handlePlayAudio(msg.audio_url)}
+                              className="mt-2.5 flex items-center gap-1.5 self-start px-3 py-1.5 bg-[#1800ad] text-[#f6f4ee] rounded-full text-[9px] font-black uppercase tracking-wider transition-all hover:scale-[1.02] active:scale-95"
+                            >
+                              <Play size={10} className="fill-current" /> Play Voice Note
+                            </button>
                           )}
                         </div>
-                      );
-                    })
-                )}
-              </div>
+                        
+                        <div className="flex items-center gap-1 mt-0.5 text-[8px] font-bold text-[#1800ad]/40 font-mono">
+                          <span>{msg.timestamp || 'Just now'}</span>
+                          {isStudent && (
+                            <span className="text-emerald-600 font-extrabold tracking-normal">✓✓</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
 
-              {/* Bottom Send doubt text input */}
-              <div className="pt-3 border-t border-[#1800ad]/20 bg-[#f6f4ee] flex flex-col gap-1.5">
-                {isDoubtRecording && (
-                  <div className="text-[9px] text-red-600 font-bold animate-pulse px-4 select-none flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-red-600 animate-ping"></span> Recording audio... Click mic again to transcribe.
-                  </div>
-                )}
-                {isTranscribing && (
-                  <div className="text-[9px] text-amber-600 font-bold animate-pulse px-4 select-none flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-ping"></span> Gemini is transcribing voice...
-                  </div>
-                )}
-                <form 
-                  onSubmit={handleCreateDoubtFromTab}
-                  className="flex gap-3 items-center"
-                >
-                  <div className="flex-1 flex items-center bg-[#f6f4ee] border-2 border-[#1800ad] rounded-full px-4 py-2.5">
-                    <input
-                      type="text"
-                      value={newDoubtText}
-                      onChange={(e) => setNewDoubtText(e.target.value)}
-                      placeholder={
-                        isTranscribing
-                          ? "Transcribing voice using Gemini..."
-                          : selectedClassId 
-                            ? `Ask a doubt for ${joinedClasses.find(c => c.class_id === selectedClassId)?.subject || 'selected subject'}...`
-                            : "Select a subject first..."
-                      }
-                      disabled={!selectedClassId || isSubmittingDoubt || isTranscribing}
-                      className="w-full bg-transparent text-xs sm:text-sm text-[#1800ad] placeholder:text-[#1800ad]/40 focus:outline-none font-semibold"
-                    />
-                    {selectedClassId && (
+                {/* Hidden input / Reopen button area if resolved */}
+                {isResolved ? (
+                  <div className="pt-3 border-t border-[#1800ad]/15 bg-[#f6f4ee] flex flex-col items-center justify-center p-4 rounded-[22px] border-2 border-[#1800ad]/20 gap-3 text-center shrink-0">
+                    <span className="text-xs font-bold text-emerald-800 flex items-center gap-1">
+                      This doubt has been marked resolved.
+                    </span>
+                    
+                    {showReopenConfirmId === selectedDoubt.doubt_id ? (
+                      <div className="flex flex-col gap-2.5 items-center w-full">
+                        <span className="text-[10px] font-black uppercase tracking-wider">Do you still need help?</span>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleReopenDoubt(selectedDoubt.doubt_id)}
+                            className="px-4 py-2 bg-[#1800ad] text-[#f6f4ee] hover:opacity-90 font-black uppercase text-[9px] tracking-wider rounded-xl transition-all"
+                          >
+                            Continue Conversation
+                          </button>
+                          <button
+                            onClick={() => setShowReopenConfirmId(null)}
+                            className="px-4 py-2 bg-white border border-[#1800ad]/20 text-[#1800ad] font-black uppercase text-[9px] tracking-wider rounded-xl transition-all"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
                       <button
-                        type="button"
-                        onClick={toggleDoubtVoiceRecording}
-                        disabled={isSubmittingDoubt || isTranscribing}
-                        className={`p-1 hover:bg-[#1800ad]/10 rounded-full transition-all ml-2 shrink-0 ${isDoubtRecording ? 'text-red-600 animate-pulse bg-red-50 border border-red-250' : 'text-[#1800ad]/60 hover:text-[#1800ad]'}`}
-                        title={isDoubtRecording ? "Stop recording" : "Record voice query"}
+                        onClick={() => setShowReopenConfirmId(selectedDoubt.doubt_id)}
+                        className="px-4 py-2.5 bg-white border-2 border-[#1800ad] text-[#1800ad] hover:bg-[#1800ad]/5 font-black uppercase text-[9px] tracking-wider rounded-xl transition-all active:scale-95"
                       >
-                        <Mic size={18} />
+                        Reopen Doubt
                       </button>
                     )}
                   </div>
-                  
-                  <button
-                    type="submit"
-                    disabled={!newDoubtText.trim() || !selectedClassId || isSubmittingDoubt || isTranscribing || isDoubtRecording}
-                    className="bg-[#1800ad] hover:opacity-95 text-[#f6f4ee] rounded-full p-3.5 hover:scale-[1.03] active:scale-95 transition-all outline-none border border-transparent shadow disabled:opacity-40 shrink-0"
-                  >
-                    <Send size={16} />
-                  </button>
-                </form>
+                ) : (
+                  /* Bottom Chat Input Form */
+                  <div className="pt-3 border-t border-[#1800ad]/15 bg-[#f6f4ee] flex flex-col gap-1.5 shrink-0">
+                    {/* Recording alert indicators */}
+                    {isFollowUpRecording[selectedDoubt.doubt_id] && (
+                      <div className="text-[9px] text-red-600 font-bold animate-pulse px-4 select-none flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-650 animate-ping"></span> Recording follow-up audio... Click mic again to send text.
+                      </div>
+                    )}
+                    {isTranscribing && (
+                      <div className="text-[9px] text-amber-600 font-bold animate-pulse px-4 select-none flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-ping"></span> Gemini transcribing voice note...
+                      </div>
+                    )}
+                    
+                    <form
+                      onSubmit={(e) => { e.preventDefault(); handleSendFollowUp(selectedDoubt.doubt_id); }}
+                      className="flex gap-3 items-center"
+                    >
+                      <div className="flex-1 flex items-center bg-[#f6f4ee] border-2 border-[#1800ad] rounded-2xl px-3.5 py-2">
+                        {/* Hidden file input for Attachments */}
+                        <input
+                          type="file"
+                          ref={fileInputRef}
+                          onChange={(e) => handleAttachmentUpload(e, selectedDoubt.doubt_id)}
+                          className="hidden"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="text-[#1800ad]/60 hover:text-[#1800ad] transition-all p-1 hover:bg-[#1800ad]/5 rounded-full shrink-0 mr-1.5"
+                          title="Attach document/screenshot"
+                        >
+                          <Paperclip size={16} />
+                        </button>
+                        
+                        <input
+                          type="text"
+                          value={followUpTexts[selectedDoubt.doubt_id] || ''}
+                          onChange={(e) => setFollowUpTexts(prev => ({ ...prev, [selectedDoubt.doubt_id]: e.target.value }))}
+                          placeholder={isTranscribing ? "Gemini voice transcription in progress..." : "Type your follow-up message..."}
+                          disabled={submittingFollowUpIds[selectedDoubt.doubt_id] || isTranscribing}
+                          className="w-full bg-transparent text-xs sm:text-sm text-[#1800ad] placeholder:text-[#1800ad]/40 focus:outline-none font-semibold"
+                        />
+                        
+                        <button
+                          type="button"
+                          onClick={() => toggleFollowUpVoiceRecording(selectedDoubt.doubt_id)}
+                          disabled={submittingFollowUpIds[selectedDoubt.doubt_id] || isTranscribing}
+                          className={`p-1 hover:bg-[#1800ad]/10 rounded-full transition-all ml-1.5 shrink-0 ${
+                            isFollowUpRecording[selectedDoubt.doubt_id] 
+                              ? 'text-red-650 animate-pulse bg-red-50 border border-red-250' 
+                              : 'text-[#1800ad]/60 hover:text-[#1800ad]'
+                          }`}
+                          title="Record and transcribe speech"
+                        >
+                          <Mic size={16} />
+                        </button>
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={submittingFollowUpIds[selectedDoubt.doubt_id] || !(followUpTexts[selectedDoubt.doubt_id] || '').trim() || isTranscribing}
+                        className="bg-[#1800ad] hover:opacity-95 text-[#f6f4ee] rounded-full p-3.5 hover:scale-[1.03] active:scale-95 transition-all outline-none border border-transparent shadow shrink-0 disabled:opacity-40"
+                      >
+                        <Send size={16} />
+                      </button>
+                    </form>
+                  </div>
+                )}
               </div>
-            </>
-          )}
+            );
+          })()}
 
         </section>
 
@@ -2408,6 +2777,225 @@ export function StudentPlaygroundPage() {
       </div>
 
       </div>{/* end main content wrapper */}
+
+      {/* Ask a New Doubt Modal */}
+      <AnimatePresence>
+        {isNewDoubtModalOpen && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.5 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsNewDoubtModalOpen(false)}
+              className="fixed inset-0 bg-black/60 z-50 animate-fade-in"
+            ></motion.div>
+            
+            {/* Modal Box */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="fixed inset-0 m-auto max-w-md h-fit bg-[#f6f4ee] border-2 border-[#1800ad] rounded-[32px] p-6 z-55 flex flex-col gap-4 font-montserrat shadow-2xl text-[#1800ad]"
+            >
+              <div className="flex items-center justify-between border-b border-[#1800ad]/20 pb-3">
+                <span className="font-black text-sm uppercase tracking-widest">Ask a New Doubt</span>
+                <button
+                  type="button"
+                  onClick={() => setIsNewDoubtModalOpen(false)}
+                  className="p-1 hover:bg-[#1800ad]/10 rounded-full"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateNewDoubt} className="flex flex-col gap-3.5">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-wider text-[#1800ad]/60">Select Class</label>
+                  <select
+                    value={newDoubtClassId}
+                    onChange={(e) => setNewDoubtClassId(e.target.value)}
+                    className="w-full p-3 bg-white border-2 border-[#1800ad] rounded-2xl text-xs sm:text-sm text-[#1800ad] font-bold outline-none"
+                  >
+                    {joinedClasses.map((cls) => (
+                      <option key={cls.class_id} value={cls.class_id}>
+                        {cls.subject} - {cls.grade} ({cls.display_name})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-wider text-[#1800ad]/60">Topic</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Electric Current"
+                    value={newDoubtTopic}
+                    onChange={(e) => setNewDoubtTopic(e.target.value)}
+                    className="w-full p-3 bg-white border-2 border-[#1800ad] rounded-2xl text-xs sm:text-sm text-[#1800ad] placeholder:text-[#1800ad]/40 focus:outline-none font-semibold"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-wider text-[#1800ad]/60">Describe your doubt</label>
+                  <div className="relative">
+                    <textarea
+                      required
+                      rows={4}
+                      placeholder="Type details of what you don't understand..."
+                      value={newDoubtDescription}
+                      onChange={(e) => setNewDoubtDescription(e.target.value)}
+                      className="w-full p-3 pr-10 bg-white border-2 border-[#1800ad] rounded-2xl text-xs sm:text-sm text-[#1800ad] placeholder:text-[#1800ad]/40 focus:outline-none font-semibold resize-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={toggleModalVoiceRecording}
+                      disabled={isTranscribing}
+                      className={`absolute right-3 bottom-3 p-1.5 rounded-full transition-all border ${
+                        isModalVoiceRecording 
+                          ? 'text-white bg-red-650 border-red-700 animate-pulse bg-red-50' 
+                          : 'text-[#1800ad]/60 border-transparent hover:bg-[#1800ad]/10'
+                      }`}
+                      title={isModalVoiceRecording ? "Stop recording" : "Record description"}
+                    >
+                      <Mic size={16} />
+                    </button>
+                  </div>
+                  {isTranscribing && (
+                    <span className="text-[9px] text-amber-700 italic font-semibold animate-pulse">
+                      Gemini is transcribing voice...
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex justify-end gap-2.5 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsNewDoubtModalOpen(false)}
+                    className="px-4 py-2 bg-white border border-[#1800ad] text-[#1800ad] font-black uppercase text-[10px] tracking-wider rounded-xl hover:bg-[#1800ad]/5 transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmittingDoubt || isTranscribing || isModalVoiceRecording}
+                    className="px-5 py-2 bg-[#1800ad] text-[#f6f4ee] font-black uppercase text-[10px] tracking-wider rounded-xl hover:opacity-90 transition-all flex items-center gap-1.5 disabled:opacity-40"
+                  >
+                    {isSubmittingDoubt ? 'Submitting...' : 'Submit'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Start New Conversation Modal */}
+      <AnimatePresence>
+        {isNewChatModalOpen && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.5 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsNewChatModalOpen(false)}
+              className="fixed inset-0 bg-black/60 z-50 animate-fade-in"
+            ></motion.div>
+            
+            {/* Modal Box */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="fixed inset-0 m-auto max-w-md h-fit bg-[#f6f4ee] border-2 border-[#1800ad] rounded-[32px] p-6 z-55 flex flex-col gap-4 font-montserrat shadow-2xl text-[#1800ad]"
+            >
+              <div className="flex items-center justify-between border-b border-[#1800ad]/20 pb-3">
+                <span className="font-black text-sm uppercase tracking-widest">Start New Conversation</span>
+                <button
+                  type="button"
+                  onClick={() => setIsNewChatModalOpen(false)}
+                  className="p-1 hover:bg-[#1800ad]/10 rounded-full"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!newChatTopic.trim()) return;
+                  
+                  const newId = `sess-${Date.now()}`;
+                  const newSess = {
+                    id: newId,
+                    title: newChatTopic.trim(),
+                    lastMsg: 'Workspace loaded for ' + newChatTopic.trim() + '...',
+                    timestamp: 'Just now'
+                  };
+                  setChatSessions(prev => [newSess, ...prev]);
+                  setActiveSessionId(newId);
+                  setMessages([
+                    {
+                      id: `msg-${Date.now()}`,
+                      sender: 'mootion',
+                      text: `Let's explore ${newChatTopic.trim()}! Type "/" to summon virtual tools: video narrations, 3D orbits, sandbox simulations, or custom quizzes.`,
+                      timestamp: 'Just now'
+                    }
+                  ]);
+                  setIsNewChatModalOpen(false);
+                }}
+                className="flex flex-col gap-3.5"
+              >
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-wider text-[#1800ad]/60">What would you like to learn?</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Electric Current"
+                    value={newChatTopic}
+                    onChange={(e) => setNewChatTopic(e.target.value)}
+                    className="w-full p-3 bg-white border-2 border-[#1800ad] rounded-2xl text-xs sm:text-sm text-[#1800ad] placeholder:text-[#1800ad]/40 focus:outline-none font-semibold"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-[#1800ad]/60">Examples:</span>
+                  <div className="flex flex-wrap gap-2">
+                    {['Electricity', 'Atoms', 'Gravity', 'Photosynthesis'].map((ex) => (
+                      <button
+                        key={ex}
+                        type="button"
+                        onClick={() => setNewChatTopic(ex)}
+                        className="px-3.5 py-1.5 bg-white border border-[#1800ad]/20 hover:border-[#1800ad] rounded-xl text-xs font-bold text-[#1800ad] transition-all active:scale-95"
+                      >
+                        {ex}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2.5 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsNewChatModalOpen(false)}
+                    className="px-4 py-2 bg-white border border-[#1800ad] text-[#1800ad] font-black uppercase text-[10px] tracking-wider rounded-xl hover:bg-[#1800ad]/5 transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 bg-[#1800ad] text-[#f6f4ee] font-black uppercase text-[10px] tracking-wider rounded-xl hover:opacity-90 transition-all flex items-center gap-1.5"
+                  >
+                    Start
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
     </div>
   );

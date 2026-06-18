@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { TASKS, Task } from '../data/tasks';
 import { NavItem } from '../components/NavItem';
+import { api } from '../lib/api';
 import { ChatbotFab } from '../components/ChatbotFab';
 import { LayoutDashboard, CheckSquare, Compass, Gamepad2 } from 'lucide-react';
 
@@ -267,7 +268,7 @@ export function StudentTaskActivityPage() {
           <NavItem icon={<Compass size={24} />} active={isFromExplore} onClick={() => navigate('/student/explore')} />
           <NavItem icon={<Gamepad2 size={24} />} />
         </nav>
-        <div className="shrink-0 cursor-pointer flex items-center justify-center group w-12 h-12 rounded-full border-2 border-[#1800ad] bg-[#f6f4ee] relative">
+        <div onClick={() => api.logout()} className="shrink-0 cursor-pointer flex items-center justify-center group w-12 h-12 rounded-full border-2 border-[#1800ad] bg-[#f6f4ee] relative">
            <span className="text-[#1800ad] font-bold text-lg">P</span>
         </div>
       </aside>
