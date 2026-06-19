@@ -1,0 +1,634 @@
+[
+  {
+    "topic_key": "projectile motion",
+    "aliases": ["projectile", "trajectory", "motion in a plane", "motion under gravity", "horizontal and vertical motion"],
+    "subject": "physics",
+    "grade_range": "9-12",
+    "phet_url": "https://phet.colorado.edu/sims/html/projectile-motion/latest/projectile-motion_all.html",
+    "title": "Projectile Motion"
+  },
+  {
+    "topic_key": "forces and motion",
+    "aliases": ["force and laws of motion", "newton's laws", "net force", "friction and motion basics"],
+    "subject": "physics",
+    "grade_range": "6-9",
+    "phet_url": "https://phet.colorado.edu/sims/html/forces-and-motion-basics/latest/forces-and-motion-basics_all.html",
+    "title": "Forces and Motion: Basics"
+  },
+  {
+    "topic_key": "spring and oscillations",
+    "aliases": ["masses and springs", "hooke's law", "shm", "simple harmonic motion", "spring constant"],
+    "subject": "physics",
+    "grade_range": "11-12",
+    "phet_url": "https://phet.colorado.edu/sims/html/masses-and-springs/latest/masses-and-springs_all.html",
+    "title": "Masses and Springs"
+  },
+  {
+    "topic_key": "pendulum",
+    "aliases": ["simple pendulum", "oscillations", "time period of pendulum", "shm pendulum"],
+    "subject": "physics",
+    "grade_range": "9-11",
+    "phet_url": "https://phet.colorado.edu/sims/html/pendulum-lab/latest/pendulum-lab_all.html",
+    "title": "Pendulum Lab"
+  },
+  {
+    "topic_key": "energy conservation",
+    "aliases": ["work energy and power", "kinetic and potential energy", "energy skate park", "conservation of energy"],
+    "subject": "physics",
+    "grade_range": "9-11",
+    "phet_url": "https://phet.colorado.edu/sims/html/energy-skate-park/latest/energy-skate-park_all.html",
+    "title": "Energy Skate Park"
+  },
+  {
+    "topic_key": "gravitation",
+    "aliases": ["gravity and orbits", "kepler's laws", "orbital motion", "universal law of gravitation"],
+    "subject": "physics",
+    "grade_range": "9-11",
+    "phet_url": "https://phet.colorado.edu/sims/html/gravity-and-orbits/latest/gravity-and-orbits_all.html",
+    "title": "Gravity and Orbits"
+  },
+  {
+    "topic_key": "gravitational force",
+    "aliases": ["gravity force lab", "force between masses", "newton's law of gravitation"],
+    "subject": "physics",
+    "grade_range": "9-11",
+    "phet_url": "https://phet.colorado.edu/sims/html/gravity-force-lab-basics/latest/gravity-force-lab-basics_all.html",
+    "title": "Gravity Force Lab: Basics"
+  },
+  {
+    "topic_key": "friction",
+    "aliases": ["force of friction", "static and kinetic friction"],
+    "subject": "physics",
+    "grade_range": "6-9",
+    "phet_url": "https://phet.colorado.edu/sims/html/friction/latest/friction_all.html",
+    "title": "Friction"
+  },
+  {
+    "topic_key": "collisions",
+    "aliases": ["momentum", "elastic and inelastic collision", "conservation of momentum", "collision lab"],
+    "subject": "physics",
+    "grade_range": "11-12",
+    "phet_url": "https://phet.colorado.edu/sims/html/collision-lab/latest/collision-lab_all.html",
+    "title": "Collision Lab"
+  },
+  {
+    "topic_key": "torque and balance",
+    "aliases": ["balancing act", "moments", "center of mass", "rotational equilibrium"],
+    "subject": "physics",
+    "grade_range": "6-11",
+    "phet_url": "https://phet.colorado.edu/sims/html/balancing-act/latest/balancing-act_all.html",
+    "title": "Balancing Act"
+  },
+  {
+    "topic_key": "vector addition",
+    "aliases": ["vectors", "resultant force", "vector components"],
+    "subject": "physics",
+    "grade_range": "11-12",
+    "phet_url": "https://phet.colorado.edu/sims/html/vector-addition/latest/vector-addition_all.html",
+    "title": "Vector Addition"
+  },
+  {
+    "topic_key": "ohm's law",
+    "aliases": ["resistance", "v=ir", "current voltage resistance", "electric current"],
+    "subject": "physics",
+    "grade_range": "9-10",
+    "phet_url": "https://phet.colorado.edu/sims/html/ohms-law/latest/ohms-law_all.html",
+    "title": "Ohm's Law"
+  },
+  {
+    "topic_key": "resistance in a wire",
+    "aliases": ["resistivity", "length area resistance", "factors affecting resistance"],
+    "subject": "physics",
+    "grade_range": "10-12",
+    "phet_url": "https://phet.colorado.edu/sims/html/resistance-in-a-wire/latest/resistance-in-a-wire_all.html",
+    "title": "Resistance in a Wire"
+  },
+  {
+    "topic_key": "electric circuits",
+    "aliases": ["circuit construction kit", "series and parallel circuits", "dc circuits", "electricity chapter"],
+    "subject": "physics",
+    "grade_range": "6-12",
+    "phet_url": "https://phet.colorado.edu/sims/html/circuit-construction-kit-dc/latest/circuit-construction-kit-dc_all.html",
+    "title": "Circuit Construction Kit: DC"
+  },
+  {
+    "topic_key": "circuits virtual lab",
+    "aliases": ["circuit construction kit virtual lab", "ammeter voltmeter circuit"],
+    "subject": "physics",
+    "grade_range": "9-12",
+    "phet_url": "https://phet.colorado.edu/sims/html/circuit-construction-kit-dc-virtual-lab/latest/circuit-construction-kit-dc-virtual-lab_all.html",
+    "title": "Circuit Construction Kit: DC - Virtual Lab"
+  },
+  {
+    "topic_key": "ac circuits",
+    "aliases": ["alternating current", "ac circuit construction kit", "capacitors and inductors ac"],
+    "subject": "physics",
+    "grade_range": "12",
+    "phet_url": "https://phet.colorado.edu/sims/html/circuit-construction-kit-ac/latest/circuit-construction-kit-ac_all.html",
+    "title": "Circuit Construction Kit: AC"
+  },
+  {
+    "topic_key": "electromagnetic induction",
+    "aliases": ["faraday's law", "induced emf", "changing magnetic flux"],
+    "subject": "physics",
+    "grade_range": "12",
+    "phet_url": "https://phet.colorado.edu/sims/html/faradays-law/latest/faradays-law_all.html",
+    "title": "Faraday's Law"
+  },
+  {
+    "topic_key": "electromagnetic lab",
+    "aliases": ["faraday's electromagnetic lab", "electromagnet", "transformer"],
+    "subject": "physics",
+    "grade_range": "10-12",
+    "phet_url": "https://phet.colorado.edu/sims/html/faradays-electromagnetic-lab/latest/faradays-electromagnetic-lab_all.html",
+    "title": "Faraday's Electromagnetic Lab"
+  },
+  {
+    "topic_key": "magnetism",
+    "aliases": ["magnet and compass", "magnetic effects of current", "magnetic field lines"],
+    "subject": "physics",
+    "grade_range": "6-10",
+    "phet_url": "https://phet.colorado.edu/sims/html/magnet-and-compass/latest/magnet-and-compass_all.html",
+    "title": "Magnet and Compass"
+  },
+  {
+    "topic_key": "electromagnets",
+    "aliases": ["magnets and electromagnets", "solenoid", "current carrying coil"],
+    "subject": "physics",
+    "grade_range": "10-12",
+    "phet_url": "https://phet.colorado.edu/sims/html/magnets-and-electromagnets/latest/magnets-and-electromagnets_all.html",
+    "title": "Magnets and Electromagnets"
+  },
+  {
+    "topic_key": "generator",
+    "aliases": ["electric generator", "ac generator working"],
+    "subject": "physics",
+    "grade_range": "10-12",
+    "phet_url": "https://phet.colorado.edu/sims/html/generator/latest/generator_all.html",
+    "title": "Generator"
+  },
+  {
+    "topic_key": "electric field",
+    "aliases": ["charges and fields", "electric field lines", "field due to charge"],
+    "subject": "physics",
+    "grade_range": "12",
+    "phet_url": "https://phet.colorado.edu/sims/html/charges-and-fields/latest/charges-and-fields_all.html",
+    "title": "Charges and Fields"
+  },
+  {
+    "topic_key": "coulomb's law",
+    "aliases": ["electrostatic force", "force between charges"],
+    "subject": "physics",
+    "grade_range": "12",
+    "phet_url": "https://phet.colorado.edu/sims/html/coulombs-law/latest/coulombs-law_all.html",
+    "title": "Coulomb's Law"
+  },
+  {
+    "topic_key": "static electricity",
+    "aliases": ["john travoltage", "electrostatic charge", "friction and charging"],
+    "subject": "physics",
+    "grade_range": "6-8",
+    "phet_url": "https://phet.colorado.edu/sims/html/john-travoltage/latest/john-travoltage_all.html",
+    "title": "John Travoltage"
+  },
+  {
+    "topic_key": "balloons and static electricity",
+    "aliases": ["charging by friction", "static charge balloon"],
+    "subject": "physics",
+    "grade_range": "6-8",
+    "phet_url": "https://phet.colorado.edu/sims/html/balloons-and-static-electricity/latest/balloons-and-static-electricity_all.html",
+    "title": "Balloons and Static Electricity"
+  },
+  {
+    "topic_key": "capacitor",
+    "aliases": ["capacitance", "capacitor lab basics", "parallel plate capacitor"],
+    "subject": "physics",
+    "grade_range": "12",
+    "phet_url": "https://phet.colorado.edu/sims/html/capacitor-lab-basics/latest/capacitor-lab-basics_all.html",
+    "title": "Capacitor Lab: Basics"
+  },
+  {
+    "topic_key": "refraction of light",
+    "aliases": ["bending light", "snell's law", "total internal reflection"],
+    "subject": "physics",
+    "grade_range": "10-12",
+    "phet_url": "https://phet.colorado.edu/sims/html/bending-light/latest/bending-light_all.html",
+    "title": "Bending Light"
+  },
+  {
+    "topic_key": "lenses and mirrors",
+    "aliases": ["geometric optics", "ray diagrams", "convex lens concave mirror"],
+    "subject": "physics",
+    "grade_range": "10-12",
+    "phet_url": "https://phet.colorado.edu/sims/html/geometric-optics/latest/geometric-optics_all.html",
+    "title": "Geometric Optics"
+  },
+  {
+    "topic_key": "lenses basics",
+    "aliases": ["geometric optics basics", "image formation by lens", "simple lens"],
+    "subject": "physics",
+    "grade_range": "10",
+    "phet_url": "https://phet.colorado.edu/sims/html/geometric-optics-basics/latest/geometric-optics-basics_all.html",
+    "title": "Geometric Optics: Basics"
+  },
+  {
+    "topic_key": "color vision",
+    "aliases": ["mixing colors of light", "additive color", "rgb light"],
+    "subject": "physics",
+    "grade_range": "9-10",
+    "phet_url": "https://phet.colorado.edu/sims/html/color-vision/latest/color-vision_all.html",
+    "title": "Color Vision"
+  },
+  {
+    "topic_key": "blackbody radiation",
+    "aliases": ["blackbody spectrum", "wien's law", "thermal radiation spectrum"],
+    "subject": "physics",
+    "grade_range": "12",
+    "phet_url": "https://phet.colorado.edu/sims/html/blackbody-spectrum/latest/blackbody-spectrum_all.html",
+    "title": "Blackbody Spectrum"
+  },
+  {
+    "topic_key": "wave on a string",
+    "aliases": ["transverse wave", "wave properties", "amplitude frequency wavelength"],
+    "subject": "physics",
+    "grade_range": "9-11",
+    "phet_url": "https://phet.colorado.edu/sims/html/wave-on-a-string/latest/wave-on-a-string_all.html",
+    "title": "Wave on a String"
+  },
+  {
+    "topic_key": "wave interference",
+    "aliases": ["interference of waves", "diffraction", "superposition of waves", "sound and water waves"],
+    "subject": "physics",
+    "grade_range": "11-12",
+    "phet_url": "https://phet.colorado.edu/sims/html/wave-interference/latest/wave-interference_all.html",
+    "title": "Wave Interference"
+  },
+  {
+    "topic_key": "sound waves",
+    "aliases": ["sound", "propagation of sound", "speed of sound", "sound and its properties"],
+    "subject": "physics",
+    "grade_range": "8-11",
+    "phet_url": "https://phet.colorado.edu/sims/html/sound-waves/latest/sound-waves_all.html",
+    "title": "Sound Waves"
+  },
+  {
+    "topic_key": "states of matter",
+    "aliases": ["solid liquid gas", "matter in our surroundings", "phase changes", "intermolecular forces"],
+    "subject": "physics",
+    "grade_range": "6-11",
+    "phet_url": "https://phet.colorado.edu/sims/html/states-of-matter/latest/states-of-matter_all.html",
+    "title": "States of Matter"
+  },
+  {
+    "topic_key": "states of matter basics",
+    "aliases": ["solids liquids gases basics", "particle model of matter"],
+    "subject": "physics",
+    "grade_range": "6-9",
+    "phet_url": "https://phet.colorado.edu/sims/html/states-of-matter-basics/latest/states-of-matter-basics_all.html",
+    "title": "States of Matter: Basics"
+  },
+  {
+    "topic_key": "gas laws",
+    "aliases": ["gas properties", "boyle's law", "charles law", "pressure volume temperature"],
+    "subject": "physics",
+    "grade_range": "11-12",
+    "phet_url": "https://phet.colorado.edu/sims/html/gas-properties/latest/gas-properties_all.html",
+    "title": "Gas Properties"
+  },
+  {
+    "topic_key": "gases intro",
+    "aliases": ["behaviour of gases", "kinetic theory of gases basics"],
+    "subject": "physics",
+    "grade_range": "9-11",
+    "phet_url": "https://phet.colorado.edu/sims/html/gases-intro/latest/gases-intro_all.html",
+    "title": "Gases Intro"
+  },
+  {
+    "topic_key": "heat and energy transfer",
+    "aliases": ["energy forms and changes", "thermal energy", "heat transfer", "calorimetry"],
+    "subject": "physics",
+    "grade_range": "9-11",
+    "phet_url": "https://phet.colorado.edu/sims/html/energy-forms-and-changes/latest/energy-forms-and-changes_all.html",
+    "title": "Energy Forms and Changes"
+  },
+  {
+    "topic_key": "density",
+    "aliases": ["mass volume density", "density of substances"],
+    "subject": "physics",
+    "grade_range": "6-9",
+    "phet_url": "https://phet.colorado.edu/sims/html/density/latest/density_all.html",
+    "title": "Density"
+  },
+  {
+    "topic_key": "buoyancy",
+    "aliases": ["archimedes principle", "floating and sinking", "upthrust"],
+    "subject": "physics",
+    "grade_range": "9-11",
+    "phet_url": "https://phet.colorado.edu/sims/html/buoyancy/latest/buoyancy_all.html",
+    "title": "Buoyancy"
+  },
+  {
+    "topic_key": "fluid pressure",
+    "aliases": ["under pressure", "pressure in liquids", "depth and pressure"],
+    "subject": "physics",
+    "grade_range": "9-11",
+    "phet_url": "https://phet.colorado.edu/sims/html/under-pressure/latest/under-pressure_all.html",
+    "title": "Under Pressure"
+  },
+  {
+    "topic_key": "atomic structure",
+    "aliases": ["build an atom", "protons neutrons electrons", "atoms and molecules", "structure of atom"],
+    "subject": "physics",
+    "grade_range": "9-11",
+    "phet_url": "https://phet.colorado.edu/sims/html/build-an-atom/latest/build-an-atom_all.html",
+    "title": "Build an Atom"
+  },
+  {
+    "topic_key": "isotopes",
+    "aliases": ["isotopes and atomic mass", "atomic mass calculation", "average atomic mass"],
+    "subject": "physics",
+    "grade_range": "9-11",
+    "phet_url": "https://phet.colorado.edu/sims/html/isotopes-and-atomic-mass/latest/isotopes-and-atomic-mass_all.html",
+    "title": "Isotopes and Atomic Mass"
+  },
+  {
+    "topic_key": "nuclear structure",
+    "aliases": ["build a nucleus", "mass defect", "binding energy per nucleon", "nuclear stability", "nuclide chart"],
+    "subject": "physics",
+    "grade_range": "11-12",
+    "phet_url": "https://phet.colorado.edu/sims/html/build-a-nucleus/latest/build-a-nucleus_all.html",
+    "title": "Build a Nucleus"
+  },
+  {
+    "topic_key": "rutherford scattering",
+    "aliases": ["alpha particle scattering experiment", "nuclear model of atom", "gold foil experiment"],
+    "subject": "physics",
+    "grade_range": "12",
+    "phet_url": "https://phet.colorado.edu/sims/html/rutherford-scattering/latest/rutherford-scattering_all.html",
+    "title": "Rutherford Scattering"
+  },
+  {
+    "topic_key": "hydrogen atom model",
+    "aliases": ["bohr model", "models of the hydrogen atom", "atomic spectra"],
+    "subject": "physics",
+    "grade_range": "12",
+    "phet_url": "https://phet.colorado.edu/sims/html/models-of-the-hydrogen-atom/latest/models-of-the-hydrogen-atom_all.html",
+    "title": "Models of the Hydrogen Atom"
+  },
+  {
+    "topic_key": "molecule shapes",
+    "aliases": ["vsepr theory", "chemical bonding shapes", "molecular geometry"],
+    "subject": "chemistry",
+    "grade_range": "11-12",
+    "phet_url": "https://phet.colorado.edu/sims/html/molecule-shapes/latest/molecule-shapes_all.html",
+    "title": "Molecule Shapes"
+  },
+  {
+    "topic_key": "molecule shapes basics",
+    "aliases": ["basic molecular shapes", "bonding pairs lone pairs"],
+    "subject": "chemistry",
+    "grade_range": "9-11",
+    "phet_url": "https://phet.colorado.edu/sims/html/molecule-shapes-basics/latest/molecule-shapes-basics_all.html",
+    "title": "Molecule Shapes: Basics"
+  },
+  {
+    "topic_key": "molecule polarity",
+    "aliases": ["polar and nonpolar molecules", "electronegativity", "dipole moment"],
+    "subject": "chemistry",
+    "grade_range": "11-12",
+    "phet_url": "https://phet.colorado.edu/sims/html/molecule-polarity/latest/molecule-polarity_all.html",
+    "title": "Molecule Polarity"
+  },
+  {
+    "topic_key": "ph scale",
+    "aliases": ["acids bases and salts", "acidity alkalinity", "ph indicator"],
+    "subject": "chemistry",
+    "grade_range": "7-11",
+    "phet_url": "https://phet.colorado.edu/sims/html/ph-scale/latest/ph-scale_all.html",
+    "title": "pH Scale"
+  },
+  {
+    "topic_key": "ph scale basics",
+    "aliases": ["basic ph", "acid base introduction"],
+    "subject": "chemistry",
+    "grade_range": "7-10",
+    "phet_url": "https://phet.colorado.edu/sims/html/ph-scale-basics/latest/ph-scale-basics_all.html",
+    "title": "pH Scale: Basics"
+  },
+  {
+    "topic_key": "acid base solutions",
+    "aliases": ["strong and weak acids", "acid base equilibrium", "ionization of acids and bases"],
+    "subject": "chemistry",
+    "grade_range": "11-12",
+    "phet_url": "https://phet.colorado.edu/sims/html/acid-base-solutions/latest/acid-base-solutions_all.html",
+    "title": "Acid-Base Solutions"
+  },
+  {
+    "topic_key": "balancing chemical equations",
+    "aliases": ["chemical reactions and equations", "law of conservation of mass", "balancing equations"],
+    "subject": "chemistry",
+    "grade_range": "9-11",
+    "phet_url": "https://phet.colorado.edu/sims/html/balancing-chemical-equations/latest/balancing-chemical-equations_all.html",
+    "title": "Balancing Chemical Equations"
+  },
+  {
+    "topic_key": "reactants products and leftovers",
+    "aliases": ["limiting reagent", "stoichiometry", "excess reactant"],
+    "subject": "chemistry",
+    "grade_range": "11-12",
+    "phet_url": "https://phet.colorado.edu/sims/html/reactants-products-and-leftovers/latest/reactants-products-and-leftovers_all.html",
+    "title": "Reactants, Products and Leftovers"
+  },
+  {
+    "topic_key": "concentration",
+    "aliases": ["molarity of solutions", "solute solvent", "dilution"],
+    "subject": "chemistry",
+    "grade_range": "9-12",
+    "phet_url": "https://phet.colorado.edu/sims/html/concentration/latest/concentration_all.html",
+    "title": "Concentration"
+  },
+  {
+    "topic_key": "molarity",
+    "aliases": ["moles and concentration", "solution concentration calculation"],
+    "subject": "chemistry",
+    "grade_range": "11-12",
+    "phet_url": "https://phet.colorado.edu/sims/html/molarity/latest/molarity_all.html",
+    "title": "Molarity"
+  },
+  {
+    "topic_key": "beer's law",
+    "aliases": ["absorbance and concentration", "spectrophotometry"],
+    "subject": "chemistry",
+    "grade_range": "11-12",
+    "phet_url": "https://phet.colorado.edu/sims/html/beers-law-lab/latest/beers-law-lab_all.html",
+    "title": "Beer's Law Lab"
+  },
+  {
+    "topic_key": "build a molecule",
+    "aliases": ["forming molecules from atoms", "chemical formulas"],
+    "subject": "chemistry",
+    "grade_range": "9-11",
+    "phet_url": "https://phet.colorado.edu/sims/html/build-a-molecule/latest/build-a-molecule_all.html",
+    "title": "Build a Molecule"
+  },
+  {
+    "topic_key": "atomic interactions",
+    "aliases": ["van der waals forces", "intermolecular attraction", "lennard jones potential"],
+    "subject": "chemistry",
+    "grade_range": "11-12",
+    "phet_url": "https://phet.colorado.edu/sims/html/atomic-interactions/latest/atomic-interactions_all.html",
+    "title": "Atomic Interactions"
+  },
+  {
+    "topic_key": "graphing lines",
+    "aliases": ["linear equations in two variables", "slope of a line", "equation of a line"],
+    "subject": "mathematics",
+    "grade_range": "9-10",
+    "phet_url": "https://phet.colorado.edu/sims/html/graphing-lines/latest/graphing-lines_all.html",
+    "title": "Graphing Lines"
+  },
+  {
+    "topic_key": "slope intercept",
+    "aliases": ["graphing slope intercept", "y=mx+c", "slope of a line form"],
+    "subject": "mathematics",
+    "grade_range": "9-10",
+    "phet_url": "https://phet.colorado.edu/sims/html/graphing-slope-intercept/latest/graphing-slope-intercept_all.html",
+    "title": "Graphing Slope-Intercept"
+  },
+  {
+    "topic_key": "graphing quadratics",
+    "aliases": ["quadratic equations graph", "parabola", "vertex form"],
+    "subject": "mathematics",
+    "grade_range": "10-11",
+    "phet_url": "https://phet.colorado.edu/sims/html/graphing-quadratics/latest/graphing-quadratics_all.html",
+    "title": "Graphing Quadratics"
+  },
+  {
+    "topic_key": "functions",
+    "aliases": ["function builder", "relations and functions", "input output machine"],
+    "subject": "mathematics",
+    "grade_range": "9-12",
+    "phet_url": "https://phet.colorado.edu/sims/html/function-builder/latest/function-builder_all.html",
+    "title": "Function Builder"
+  },
+  {
+    "topic_key": "functions basics",
+    "aliases": ["basic functions", "introduction to functions"],
+    "subject": "mathematics",
+    "grade_range": "9-10",
+    "phet_url": "https://phet.colorado.edu/sims/html/function-builder-basics/latest/function-builder-basics_all.html",
+    "title": "Function Builder: Basics"
+  },
+  {
+    "topic_key": "fractions",
+    "aliases": ["fraction matcher", "comparing fractions", "equivalent fractions"],
+    "subject": "mathematics",
+    "grade_range": "6-8",
+    "phet_url": "https://phet.colorado.edu/sims/html/fraction-matcher/latest/fraction-matcher_all.html",
+    "title": "Fraction Matcher"
+  },
+  {
+    "topic_key": "fractions intro",
+    "aliases": ["introduction to fractions", "numerator denominator"],
+    "subject": "mathematics",
+    "grade_range": "6-8",
+    "phet_url": "https://phet.colorado.edu/sims/html/fractions-intro/latest/fractions-intro_all.html",
+    "title": "Fractions: Intro"
+  },
+  {
+    "topic_key": "fractions equality",
+    "aliases": ["equivalent fractions equality", "comparing fraction values"],
+    "subject": "mathematics",
+    "grade_range": "6-8",
+    "phet_url": "https://phet.colorado.edu/sims/html/fractions-equality/latest/fractions-equality_all.html",
+    "title": "Fractions: Equality"
+  },
+  {
+    "topic_key": "mixed numbers",
+    "aliases": ["fractions mixed numbers", "improper fractions"],
+    "subject": "mathematics",
+    "grade_range": "6-8",
+    "phet_url": "https://phet.colorado.edu/sims/html/fractions-mixed-numbers/latest/fractions-mixed-numbers_all.html",
+    "title": "Fractions: Mixed Numbers"
+  },
+  {
+    "topic_key": "area and perimeter",
+    "aliases": ["area builder", "mensuration", "area of shapes"],
+    "subject": "mathematics",
+    "grade_range": "6-8",
+    "phet_url": "https://phet.colorado.edu/sims/html/area-builder/latest/area-builder_all.html",
+    "title": "Area Builder"
+  },
+  {
+    "topic_key": "area model multiplication",
+    "aliases": ["multiplication using area model", "partial products"],
+    "subject": "mathematics",
+    "grade_range": "6-8",
+    "phet_url": "https://phet.colorado.edu/sims/html/area-model-multiplication/latest/area-model-multiplication_all.html",
+    "title": "Area Model Multiplication"
+  },
+  {
+    "topic_key": "area model algebra",
+    "aliases": ["polynomial multiplication area model", "algebraic identities visual"],
+    "subject": "mathematics",
+    "grade_range": "8-10",
+    "phet_url": "https://phet.colorado.edu/sims/html/area-model-algebra/latest/area-model-algebra_all.html",
+    "title": "Area Model Algebra"
+  },
+  {
+    "topic_key": "linear equations one variable",
+    "aliases": ["equality explorer", "balancing equations algebra", "solving for x"],
+    "subject": "mathematics",
+    "grade_range": "7-9",
+    "phet_url": "https://phet.colorado.edu/sims/html/equality-explorer/latest/equality-explorer_all.html",
+    "title": "Equality Explorer"
+  },
+  {
+    "topic_key": "algebraic expressions",
+    "aliases": ["expression exchange", "simplifying expressions", "terms and coefficients"],
+    "subject": "mathematics",
+    "grade_range": "7-9",
+    "phet_url": "https://phet.colorado.edu/sims/html/expression-exchange/latest/expression-exchange_all.html",
+    "title": "Expression Exchange"
+  },
+  {
+    "topic_key": "ratio and proportion",
+    "aliases": ["proportion playground", "direct and inverse proportion"],
+    "subject": "mathematics",
+    "grade_range": "6-8",
+    "phet_url": "https://phet.colorado.edu/sims/html/proportion-playground/latest/proportion-playground_all.html",
+    "title": "Proportion Playground"
+  },
+  {
+    "topic_key": "trigonometry",
+    "aliases": ["trig tour", "trigonometric ratios", "unit circle"],
+    "subject": "mathematics",
+    "grade_range": "10-11",
+    "phet_url": "https://phet.colorado.edu/sims/html/trig-tour/latest/trig-tour_all.html",
+    "title": "Trig Tour"
+  },
+  {
+    "topic_key": "natural selection",
+    "aliases": ["evolution", "darwin's theory", "adaptation and survival"],
+    "subject": "biology",
+    "grade_range": "11-12",
+    "phet_url": "https://phet.colorado.edu/sims/html/natural-selection/latest/natural-selection_all.html",
+    "title": "Natural Selection"
+  },
+  {
+    "topic_key": "gene expression",
+    "aliases": ["protein synthesis", "transcription and translation", "molecular basis of inheritance"],
+    "subject": "biology",
+    "grade_range": "12",
+    "phet_url": "https://phet.colorado.edu/sims/html/gene-expression-essentials/latest/gene-expression-essentials_all.html",
+    "title": "Gene Expression Essentials"
+  },
+  {
+    "topic_key": "neuron",
+    "aliases": ["nerve impulse", "neural control and coordination", "action potential"],
+    "subject": "biology",
+    "grade_range": "11-12",
+    "phet_url": "https://phet.colorado.edu/sims/html/neuron/latest/neuron_all.html",
+    "title": "Neuron"
+  }
+]

@@ -1,0 +1,118 @@
+[
+  {
+    "topic_key": "motion 2d",
+    "aliases": [
+      "ladybug motion",
+      "position velocity acceleration",
+      "2d motion graphs"
+    ],
+    "subject": "physics",
+    "grade_range": "9-11",
+    "phet_url": "https://phet.colorado.edu/sims/html/ladybug-motion-2d/latest/ladybug-motion-2d_all.html",
+    "title": "Ladybug Motion 2D",
+    "failure_reason": "HTTP 404"
+  },
+  {
+    "topic_key": "sound waves",
+    "aliases": [
+      "sound",
+      "propagation of sound",
+      "speed of sound",
+      "sound and its properties"
+    ],
+    "subject": "physics",
+    "grade_range": "8-11",
+    "phet_url": "https://phet.colorado.edu/sims/html/sound/latest/sound_all.html",
+    "title": "Sound",
+    "failure_reason": "HTTP 404"
+  },
+  {
+    "topic_key": "photoelectric effect",
+    "aliases": [
+      "dual nature of radiation and matter",
+      "work function",
+      "einstein photoelectric equation"
+    ],
+    "subject": "physics",
+    "grade_range": "12",
+    "phet_url": "https://phet.colorado.edu/sims/html/photoelectric-effect/latest/photoelectric-effect_all.html",
+    "title": "Photoelectric Effect",
+    "failure_reason": "HTTP 404"
+  },
+  {
+    "topic_key": "nuclear fission",
+    "aliases": [
+      "chain reaction",
+      "nuclear energy",
+      "splitting the atom"
+    ],
+    "subject": "physics",
+    "grade_range": "12",
+    "phet_url": "https://phet.colorado.edu/sims/html/nuclear-fission/latest/nuclear-fission_all.html",
+    "title": "Nuclear Fission",
+    "failure_reason": "HTTP 404"
+  },
+  {
+    "topic_key": "alpha decay",
+    "aliases": [
+      "radioactivity",
+      "nuclear decay",
+      "alpha particle emission"
+    ],
+    "subject": "physics",
+    "grade_range": "12",
+    "phet_url": "https://phet.colorado.edu/sims/html/alpha-decay/latest/alpha-decay_all.html",
+    "title": "Alpha Decay",
+    "failure_reason": "HTTP 404"
+  },
+  {
+    "topic_key": "beta decay",
+    "aliases": [
+      "nuclear physics decay",
+      "beta particle emission"
+    ],
+    "subject": "physics",
+    "grade_range": "12",
+    "phet_url": "https://phet.colorado.edu/sims/html/beta-decay/latest/beta-decay_all.html",
+    "title": "Beta Decay",
+    "failure_reason": "HTTP 404"
+  },
+  {
+    "topic_key": "radioactive dating",
+    "aliases": [
+      "half life",
+      "carbon dating",
+      "radioactive dating game"
+    ],
+    "subject": "physics",
+    "grade_range": "12",
+    "phet_url": "https://phet.colorado.edu/sims/html/radioactive-dating-game/latest/radioactive-dating-game_all.html",
+    "title": "Radioactive Dating Game",
+    "failure_reason": "HTTP 404"
+  },
+  {
+    "topic_key": "solubility",
+    "aliases": [
+      "salts and solubility",
+      "saturated solution",
+      "solubility product"
+    ],
+    "subject": "chemistry",
+    "grade_range": "11-12",
+    "phet_url": "https://phet.colorado.edu/sims/html/salts-and-solubility/latest/salts-and-solubility_all.html",
+    "title": "Salts and Solubility",
+    "failure_reason": "HTTP 404"
+  },
+  {
+    "topic_key": "sugar and salt solutions",
+    "aliases": [
+      "ionic and covalent compounds in water",
+      "dissolving sugar and salt"
+    ],
+    "subject": "chemistry",
+    "grade_range": "9-11",
+    "phet_url": "https://phet.colorado.edu/sims/html/sugar-and-salt-solutions/latest/sugar-and-salt-solutions_all.html",
+    "title": "Sugar and Salt Solutions",
+    "failure_reason": "HTTP 404"
+  }
+]

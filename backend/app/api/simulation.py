@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
@@ -19,6 +20,25 @@ from app.simulation_engine import (
 router = APIRouter(prefix="/simulations", tags=["simulations"])
 
 orchestrator = SimulationOrchestrator()
+
+SIMS_DATA = []
+try:
+    _sims_path = os.path.join(os.path.dirname(__file__), "../../../sim/sims.json")
+    with open(_sims_path, "r") as f:
+        SIMS_DATA = json.load(f)
+except Exception as e:
+    print(f"Error loading sims.json: {e}")
+
+class ResolveRequest(BaseModel):
+    topic: str
+    grade_level: str | None = None
+
+class ResolveResponse(BaseModel):
+    type: str
+    url: str | None = None
+    simulation_id: str | None = None
+    html: str | None = None
+    title: str | None = None
 
 
 class GenerateRequest(BaseModel):
@@ -136,6 +156,52 @@ async def generate_from_spec(
     _save_result(db, result)
 
     return _result_to_response(result)
+
+
+@router.post("/resolve", response_model=ResolveResponse)
+async def resolve_simulation(
+    request: ResolveRequest,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    topic_lower = request.topic.lower().strip()
+    
+    # 1. Lookup by topic or alias
+    for sim in SIMS_DATA:
+        if sim.get("topic_key", "").lower() == topic_lower or any(a.lower() == topic_lower for a in sim.get("aliases", [])):
+            # Basic grade filtering if grade_level is provided and sim has grade_range
+            if request.grade_level and sim.get("grade_range"):
+                if request.grade_level not in sim["grade_range"]:
+                    continue
+            return ResolveResponse(
+                type="phet",
+                url=sim["phet_url"],
+                title=sim.get("title", request.topic.title())
+            )
+            
+    # 2. AI generation fallback
+    from app.core.config import settings
+    result = await orchestrator.generate_from_prompt(request.topic)
+    _save_result(db, result, prompt=request.topic)
+    
+    if result.phase.value == "failed" or result.error:
+        return ResolveResponse(
+            type="failed",
+            simulation_id=result.simulation_id,
+            html=None,
+            title=f"AI Simulation: {request.topic.title()}",
+            url=None
+        )
+
+    external_url = f"{settings.backend_public_url.rstrip('/')}/simulations/{result.simulation_id}/html" if result.phase.value == "completed" else None
+    
+    return ResolveResponse(
+        type="ai",
+        simulation_id=result.simulation_id,
+        html=result.html,
+        title=f"AI Simulation: {request.topic.title()}",
+        url=external_url
+    )
 
 
 @router.get("/supported-subjects")
