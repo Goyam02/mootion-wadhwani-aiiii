@@ -411,3 +411,149 @@ def bootstrap_ncert_curriculum(
 
     _snapshot_curriculum(db, curriculum, "bootstrap_ncert", curriculum_data.model_dump())
     return _render_response(curriculum)
+
+
+def bootstrap_ncert_curriculum_bulk(
+    db: Session,
+    user: User,
+    class_id: str,
+) -> CurriculumResponse:
+    import uuid
+    from app.core.models import Chapter, ChapterTopic, ChapterTopicAsset, ChapterAsset
+    from app.services.chapter_service import TOPIC_PLACEHOLDER_ASSETS, PLACEHOLDER_ASSETS
+
+    class_room = _get_class_room_for_teacher(db, user, class_id)
+
+    # Clean up/delete any existing curriculum plans for this class
+    existing_curriculums = db.query(CurriculumPlan).filter(CurriculumPlan.class_id == class_room.id).all()
+    for cur in existing_curriculums:
+        db.delete(cur)
+
+    # Clean up/delete any existing chapters for this class
+    existing_chapters = db.query(Chapter).filter(Chapter.class_id == class_room.id).all()
+    for chap in existing_chapters:
+        db.delete(chap)
+
+    db.commit()
+
+    title = f"NCERT {class_room.subject} - Class {class_room.grade}"
+    try:
+        curriculum_data = build_ncert_curriculum(title=title, grade=class_room.grade, subject=class_room.subject)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    curriculum = create_curriculum_plan(
+        db,
+        CurriculumPlan(
+            class_id=class_room.id,
+            created_by_teacher_id=user.id,
+            version=1,
+            title=curriculum_data.title,
+            source_type=curriculum_data.source_type,
+            source_text=curriculum_data.source_text,
+            source_subject=curriculum_data.source_subject,
+            document_id=curriculum_data.document_id,
+            curriculum_data=curriculum_data.model_dump(),
+            status="draft",
+        ),
+    )
+
+    _snapshot_curriculum(db, curriculum, "bootstrap_ncert_bulk", curriculum_data.model_dump())
+    db.commit()
+
+    # Bulk create chapters and topics
+    chapters_to_add = []
+    topics_to_add = []
+    chapter_assets_to_add = []
+    topic_assets_to_add = []
+
+    root = curriculum_data.root
+    children = root.children or []
+
+    for index, child in enumerate(children):
+        chapter_id = uuid.uuid4()
+        chapter = Chapter(
+            id=chapter_id,
+            class_id=class_room.id,
+            curriculum_id=curriculum.id,
+            source_node_id=child.id,
+            sequence_number=index + 1,
+            title=child.title,
+            status="unset",
+        )
+        chapters_to_add.append(chapter)
+
+        # Create placeholder assets for the chapter
+        for asset_config in PLACEHOLDER_ASSETS:
+            chapter_asset = ChapterAsset(
+                id=uuid.uuid4(),
+                chapter_id=chapter_id,
+                asset_type=asset_config["asset_type"],
+                provider=asset_config["provider"],
+                integration_target=asset_config["integration_target"],
+                title=asset_config["title"],
+                description=asset_config["description"],
+                payload_json=asset_config["payload_json"] | {
+                    "placeholder": True,
+                    "chapter_id": str(chapter_id),
+                    "asset_type": asset_config["asset_type"],
+                    "provider": asset_config["provider"],
+                    "integration_target": asset_config["integration_target"],
+                },
+                generation_status="placeholder",
+                external_url=None,
+            )
+            chapter_assets_to_add.append(chapter_asset)
+
+        # Create topics
+        topic_nodes = child.children or []
+        for topic_index, topic_node in enumerate(topic_nodes):
+            topic_id = uuid.uuid4()
+            topic = ChapterTopic(
+                id=topic_id,
+                chapter_id=chapter_id,
+                source_node_id=topic_node.id,
+                sequence_number=topic_index + 1,
+                title=topic_node.title,
+                source_text=topic_node.metadata.get("source_text") or topic_node.title if topic_node.metadata else topic_node.title,
+                status="unset",
+            )
+            topics_to_add.append(topic)
+
+            # Create placeholder assets for the topic
+            for asset_config in TOPIC_PLACEHOLDER_ASSETS:
+                topic_asset = ChapterTopicAsset(
+                    id=uuid.uuid4(),
+                    topic_id=topic_id,
+                    asset_type=asset_config["asset_type"],
+                    provider=asset_config["provider"],
+                    integration_target=asset_config["integration_target"],
+                    title=asset_config["title"],
+                    description=asset_config["description"],
+                    payload_json=asset_config["payload_json"] | {
+                        "placeholder": True,
+                        "chapter_id": str(chapter_id),
+                        "chapter_title": chapter.title,
+                        "topic_id": str(topic_id),
+                        "topic_title": topic.title,
+                        "topic_source_text": topic.source_text,
+                        "asset_type": asset_config["asset_type"],
+                        "provider": asset_config["provider"],
+                        "integration_target": asset_config["integration_target"],
+                    },
+                    generation_status="placeholder",
+                    external_url=None,
+                )
+                topic_assets_to_add.append(topic_asset)
+
+    db.add_all(chapters_to_add)
+    db.commit() # Commit chapters first to satisfy foreign keys
+
+    db.add_all(chapter_assets_to_add)
+    db.add_all(topics_to_add)
+    db.commit() # Commit topics next to satisfy topic foreign keys
+
+    db.add_all(topic_assets_to_add)
+    db.commit()
+
+    return _render_response(curriculum)

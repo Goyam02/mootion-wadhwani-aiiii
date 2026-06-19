@@ -61,6 +61,14 @@ class ChapterTopicAssetGenerateResponse(BaseModel):
     asset: ChapterTopicAssetResponse
 
 
+class SubtopicResponse(BaseModel):
+    subtopic_id: str
+    title: str
+    order: int
+    kind: str
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
 class ChapterResponse(BaseModel):
     chapter_id: str
     class_id: str
@@ -71,6 +79,7 @@ class ChapterResponse(BaseModel):
     status: str
     assets: list[ChapterAssetResponse] = Field(default_factory=list)
     topics: list[ChapterTopicResponse] = Field(default_factory=list)
+    subtopics: list[SubtopicResponse] = Field(default_factory=list)
 
 
 class ChapterListItem(BaseModel):

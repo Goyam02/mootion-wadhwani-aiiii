@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.deps import require_teacher
 from app.schemas.curriculum import CurriculumCreateRequest, CurriculumListItem, CurriculumPatchRequest, CurriculumPatchResponse, CurriculumResponse, CurriculumUpdateRequest
-from app.services.curriculum_service import bootstrap_ncert_curriculum, create_class_curriculum, get_class_curriculum, list_class_curricula, patch_class_curriculum, update_class_curriculum
+from app.services.curriculum_service import bootstrap_ncert_curriculum, bootstrap_ncert_curriculum_bulk, create_class_curriculum, get_class_curriculum, list_class_curricula, patch_class_curriculum, update_class_curriculum
 
 
 router = APIRouter(prefix="/teachers/classes/{class_id}/curriculum", tags=["curriculum"])
@@ -20,6 +20,11 @@ def create_curriculum(class_id: str, request: CurriculumCreateRequest, user=Depe
 @router.post("/bootstrap", response_model=CurriculumResponse)
 def bootstrap_curriculum(class_id: str, user=Depends(require_teacher), db: Session = Depends(get_db)):
     return bootstrap_ncert_curriculum(db, user, class_id)
+
+
+@router.post("/bootstrap-bulk", response_model=CurriculumResponse)
+def bootstrap_curriculum_bulk(class_id: str, user=Depends(require_teacher), db: Session = Depends(get_db)):
+    return bootstrap_ncert_curriculum_bulk(db, user, class_id)
 
 
 @router.get("", response_model=list[CurriculumListItem])

@@ -31,11 +31,20 @@ export function TeacherClassViewPage() {
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
 
   useEffect(() => {
+    // `active` guards against React 18 StrictMode's double-mount.
+    // StrictMode mounts → unmounts → remounts every component in dev, firing
+    // effects twice. Without this flag both concurrent runs see curricula=[]
+    // and both POST to bootstrap-bulk → 24 chapters instead of 12.
+    // The cleanup sets active=false so the first (cancelled) run bails out
+    // before it reaches any mutating API calls.
+    let active = true;
+
     const loadClassAndSyllabus = async () => {
       setIsLoading(true);
       setError(null);
       try {
         const classes = await api.get('/teachers/classes');
+        if (!active) return;
         console.log("EXACT RAW CLASSES:", classes);
         
         const rawId = (id || '').toLowerCase().trim();
@@ -89,18 +98,20 @@ export function TeacherClassViewPage() {
             return true;
           }
 
-          // 2. Science fallback match for grades 5-10:
-          // If the URL parsed subject is physics/chemistry/biology, and the class in db is Science
+          // 2. Science fallback match for grades 5-10
           const numericGrade = parseInt(targetGradeNormalized, 10);
           if (
             !isNaN(numericGrade) &&
             numericGrade >= 5 &&
             numericGrade <= 10 &&
-            classGradeNormalized === targetGradeNormalized &&
-            classSubjectNormalized === 'science' &&
-            ['physics', 'chemistry', 'biology'].includes(targetSubjectNormalized)
+            classGradeNormalized === targetGradeNormalized
           ) {
-            return true;
+            if (
+              (classSubjectNormalized === 'science' && ['physics', 'chemistry', 'biology'].includes(targetSubjectNormalized)) ||
+              (targetSubjectNormalized === 'science' && ['physics', 'chemistry', 'biology'].includes(classSubjectNormalized))
+            ) {
+              return true;
+            }
           }
 
           return false;
@@ -110,76 +121,72 @@ export function TeacherClassViewPage() {
           throw new Error(`Class not found for grade "${parsedGrade || 'unknown'}" and subject "${parsedSubject || 'unknown'}"`);
         }
 
+        if (!active) return;
         setResolvedClass(matchedClass);
         const classId = matchedClass.class_id;
 
         setLoadingStep("Checking curriculum...");
-        let curricula = await api.get(`/teachers/classes/${classId}/curriculum`);
+        const curricula = await api.get(`/teachers/classes/${classId}/curriculum`);
+        if (!active) return;
+
         let activeCurriculum = null;
 
         if (curricula.length === 0) {
-          setLoadingStep("Setting up your curriculum...");
-          if (matchedClass.subject === 'Science') {
-            const grade = matchedClass.grade;
-            const bootRes = await api.post(`/teachers/classes/${classId}/curriculum`, {
-              title: `Science - Class ${grade}`,
-              curriculum_data: {
-                title: `Science - Class ${grade}`,
-                subject: "Science",
-                grade: `${grade}`,
-                source_type: "manual",
-                root: {
-                  id: "root",
-                  title: `Science - Class ${grade}`,
-                  kind: "module",
-                  order: 0,
-                  metadata: {},
-                  children: [
-                    { id: "unit_1", title: "Matter and Materials", kind: "unit", order: 0, metadata: {}, children: [] },
-                    { id: "unit_2", title: "Living World", kind: "unit", order: 1, metadata: {}, children: [] },
-                    { id: "unit_3", title: "Force and Energy", kind: "unit", order: 2, metadata: {}, children: [] },
-                    { id: "unit_4", title: "Natural Phenomena", kind: "unit", order: 3, metadata: {}, children: [] },
-                    { id: "unit_5", title: "Our Environment", kind: "unit", order: 4, metadata: {}, children: [] }
-                  ]
-                }
-              },
-              status: "draft"
-            });
-            activeCurriculum = bootRes;
-          } else {
-            const bootRes = await api.post(`/teachers/classes/${classId}/curriculum/bootstrap`);
-            activeCurriculum = bootRes;
-          }
+          setLoadingStep("Setting up your curriculum and chapters...");
+          // Check active BEFORE the mutating POST to prevent StrictMode double-bootstrap
+          if (!active) return;
+          const bootRes = await api.post(`/teachers/classes/${classId}/curriculum/bootstrap-bulk`);
+          if (!active) return;
+          activeCurriculum = bootRes;
         } else {
           activeCurriculum = curricula.find((c: any) => c.status === 'active') || curricula[0];
         }
 
-        const curriculumId = activeCurriculum.curriculum_id;
-
         setLoadingStep("Fetching chapters...");
         let fetchedChapters = await api.get(`/teachers/classes/${classId}/chapters`);
+        if (!active) return;
 
-        if (fetchedChapters.length === 0) {
-          setLoadingStep("Generating chapters...");
-          await api.post(`/teachers/classes/${classId}/chapters/bootstrap`, {
-            curriculum_id: curriculumId
-          });
+        // Detect duplicate chapters (same sequence_number appearing twice).
+        // This can happen if bootstrap-bulk was called concurrently on a previous
+        // visit. Re-run bootstrap-bulk to wipe and cleanly recreate.
+        const hasDuplicates = (() => {
+          const seen = new Set<number>();
+          for (const ch of fetchedChapters) {
+            if (seen.has(ch.sequence_number)) return true;
+            seen.add(ch.sequence_number);
+          }
+          return false;
+        })();
+
+        if (fetchedChapters.length === 0 || hasDuplicates) {
+          setLoadingStep(hasDuplicates ? "Fixing duplicate chapters..." : "Generating chapters from NCERT syllabus...");
+          if (!active) return;
+          activeCurriculum = await api.post(`/teachers/classes/${classId}/curriculum/bootstrap-bulk`);
+          if (!active) return;
           setLoadingStep("Loading chapters...");
           fetchedChapters = await api.get(`/teachers/classes/${classId}/chapters`);
+          if (!active) return;
         }
 
         const sorted = [...fetchedChapters].sort((a: any, b: any) => a.sequence_number - b.sequence_number);
         setChapters(sorted);
       } catch (err: any) {
+        if (!active) return;
         console.error(err);
         setError(err.detail || err.message || "Failed to load classroom details");
       } finally {
-        setIsLoading(false);
-        setLoadingStep(null);
+        if (active) {
+          setIsLoading(false);
+          setLoadingStep(null);
+        }
       }
     };
 
     loadClassAndSyllabus();
+
+    // Cleanup: mark this effect run as stale so in-flight async steps abort
+    // before touching state or POSTing to the backend.
+    return () => { active = false; };
   }, [id]);
 
   useEffect(() => {
@@ -454,7 +461,7 @@ export function TeacherClassViewPage() {
                           {/* Compact Top Header */}
                           <div className="flex justify-between items-center">
                             <span className="text-[10px] font-black uppercase tracking-wider text-[#f6f4ee]/80">
-                              {isTopic ? `Topic ${selectedChapterDetails.sequence_number + 1}.${index + 1}` : `Chapter ${selectedChapterDetails.sequence_number} • ${item.asset_type}`}
+                              {isTopic ? `Topic ${selectedChapterDetails.sequence_number}.${index + 1}` : `Chapter ${selectedChapterDetails.sequence_number} • ${item.asset_type}`}
                             </span>
                             <span className="text-[9px] font-bold bg-[#f6f4ee]/15 px-2 py-0.5 rounded-md text-[#f6f4ee]/90 uppercase tracking-wider">
                               {isTopic ? `${resourceCount} resources` : 'Interactive'}

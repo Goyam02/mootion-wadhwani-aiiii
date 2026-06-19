@@ -116,6 +116,28 @@ def build_ncert_curriculum(title: str, grade: str, subject: str) -> CurriculumRo
     chapter_nodes: list[CurriculumTreeNode] = []
     chapters = subject_entry.get("chapters", []) or []
 
+    try:
+        grade_int = int(str(grade).strip())
+    except ValueError:
+        grade_int = 0
+
+    import re
+    subj_clean = subject.strip().lower()
+    if grade_int in (11, 12) and subj_clean in ("physics", "chemistry", "biology"):
+        target_prefix = subj_clean.capitalize()
+        filtered_chapters = []
+        for chap in chapters:
+            name = chap.get("name") or ""
+            if name.startswith(target_prefix):
+                # Clean prefix from name
+                clean_name = re.sub(rf"^{target_prefix}\s+(Chapter|Unit)\s+\d+:\s*", "", name)
+                clean_name = re.sub(rf"^{target_prefix}\s+(Chapter|Unit)\s+\d+\s*[-–—]\s*", "", clean_name)
+                
+                chap_copy = dict(chap)
+                chap_copy["name"] = clean_name
+                filtered_chapters.append(chap_copy)
+        chapters = filtered_chapters
+
     for chapter_index, chapter in enumerate(chapters):
         chapter_id = str(chapter.get("id") or f"chapter_{chapter_index + 1}")
         chapter_title = str(chapter.get("name") or chapter_id.replace("-", " ").title())

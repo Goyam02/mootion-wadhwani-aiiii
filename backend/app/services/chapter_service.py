@@ -32,6 +32,11 @@ from app.schemas.chapter import (
     ChapterBootstrapResponse,
     ChapterListItem,
     ChapterResponse,
+    ChapterTopicAssetGenerateRequest,
+    ChapterTopicAssetGenerateResponse,
+    ChapterTopicAssetResponse,
+    ChapterTopicResponse,
+    SubtopicResponse
 )
 from app.services.assignment_service import _run_manim_generation, _run_model_finder_generation
 from app.services.media_service import resolve_asset_media_url
@@ -199,6 +204,36 @@ def _ensure_user_has_access(db: Session, user: User, class_id: str) -> None:
 def _chapter_to_response(db: Session, chapter: Chapter) -> ChapterResponse:
     assets = get_assets_for_chapter(db, str(chapter.id))
     topics = get_topics_for_chapter(db, str(chapter.id))
+
+    subtopics = []
+    if chapter.source_node_id and chapter.curriculum_id:
+        curriculum = get_curriculum_plan(db, str(chapter.curriculum_id))
+        if curriculum and curriculum.curriculum_data:
+            root = curriculum.curriculum_data.get("root") or {}
+            
+            def find_node(node: dict, target_id: str) -> dict | None:
+                if node.get("id") == target_id:
+                    return node
+                for child in node.get("children", []) or []:
+                    res = find_node(child, target_id)
+                    if res:
+                        return res
+                return None
+
+            chapter_node = find_node(root, chapter.source_node_id)
+            if chapter_node:
+                children = chapter_node.get("children", []) or []
+                for index, child in enumerate(children):
+                    subtopics.append(
+                        SubtopicResponse(
+                            subtopic_id=child.get("id") or "",
+                            title=child.get("title") or "",
+                            order=child.get("order") if child.get("order") is not None else index,
+                            kind=child.get("kind") or "topic",
+                            metadata=child.get("metadata") or {},
+                        )
+                    )
+
     return ChapterResponse(
         chapter_id=str(chapter.id),
         class_id=str(chapter.class_id),
@@ -222,6 +257,7 @@ def _chapter_to_response(db: Session, chapter: Chapter) -> ChapterResponse:
             for asset in assets
         ],
         topics=[_topic_to_response(db, topic) for topic in topics],
+        subtopics=subtopics,
     )
 
 
@@ -628,7 +664,7 @@ def bootstrap_chapters_from_curriculum(db: Session, user: User, class_id: str, c
                 class_id=curriculum.class_id,
                 curriculum_id=curriculum.id,
                 source_node_id=node_id,
-                sequence_number=index,
+                sequence_number=index + 1,
                 title=child.get("title", f"Chapter {index + 1}"),
                 status="unset",
             )
@@ -645,7 +681,7 @@ def bootstrap_chapters_from_curriculum(db: Session, user: User, class_id: str, c
                     id=uuid.uuid4(),
                     chapter_id=chapter.id,
                     source_node_id=topic_node_id,
-                    sequence_number=topic_index,
+                    sequence_number=topic_index + 1,
                     title=topic_node.get("title", f"Topic {topic_index + 1}"),
                     source_text=topic_node.get("metadata", {}).get("source_text") or topic_node.get("title"),
                     status="unset",

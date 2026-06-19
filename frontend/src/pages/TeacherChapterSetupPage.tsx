@@ -271,15 +271,56 @@ export function TeacherChapterSetupPage() {
     }
   };
 
-  const handlePublishAssignment = () => {
+  const [assignError, setAssignError] = useState<string | null>(null);
+
+  const mapAssetTypeToAssignmentType = (assetType: string): string => {
+    switch (assetType) {
+      case 'concept_video': return 'video';
+      case 'simulation': return 'simulation';
+      case 'three_d_model': return 'model';
+      case 'quiz': return 'quiz';
+      case 'explain_it': return 'explain_ai';
+      case 'predict_it': return 'predict_ai';
+      case 'spot_it': return 'spot_it';
+      case 'connect_it': return 'connect_it';
+      case 'topic': return 'quiz'; // Default to quiz for topic assignments at chapter level
+      default: return assetType;
+    }
+  };
+
+  const handlePublishAssignment = async () => {
+    if (!classId || !chapterId) return;
     setPublishing(true);
-    setTimeout(() => {
-      setPublishing(false);
+    setAssignError(null);
+    try {
+      const activeActs = activities.filter(a => a.active);
+      if (activeActs.length === 0) {
+        throw new Error('Please select at least one activity to assign.');
+      }
+      
+      // Make sequential or parallel POST calls to create the assignments
+      await Promise.all(
+        activeActs.map(async (act) => {
+          const assignmentType = mapAssetTypeToAssignmentType(act.asset_type);
+          await api.post(`/teachers/classes/${classId}/assignments`, {
+            chapter_id: chapterId,
+            assignment_type: assignmentType,
+            title: act.title,
+            instructions: specialNote || null,
+          });
+        })
+      );
+
       setSuccess(true);
       setTimeout(() => {
         navigate(`/teacher/class/${classId || 'class-8-science'}`);
       }, 1500);
-    }, 1800);
+    } catch (err: any) {
+      console.error("Failed to publish assignments:", err);
+      setAssignError(err?.detail || err?.message || 'Failed to create assignments. Please try again.');
+    } finally {
+      setPublishing(false);
+    }
   };
 
   return (
@@ -546,7 +587,11 @@ export function TeacherChapterSetupPage() {
                 {/* Bottom CTA for Configuration Settings trigger */}
                 <div className="mt-8 border-t-2 border-[#1800ad]/15 pt-6 flex justify-end">
                   <button
-                    onClick={() => setShowConfig(true)}
+                    onClick={() => {
+                      setSuccess(false);
+                      setAssignError(null);
+                      setShowConfig(true);
+                    }}
                     className="bg-[#1800ad] text-[#f6f4ee] py-4 px-10 rounded-full font-black text-sm uppercase tracking-widest hover:scale-102 transition-transform shadow-xl"
                   >
                     Assign To Class
@@ -628,6 +673,12 @@ export function TeacherChapterSetupPage() {
                           rows={3}
                         />
                       </div>
+
+                      {assignError && (
+                        <div className="text-xs font-bold text-rose-600 mt-1">
+                          {assignError}
+                        </div>
+                      )}
 
                       {/* Action buttons */}
                       <div className="flex gap-4 mt-4">

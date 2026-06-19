@@ -111,6 +111,50 @@ export function TeacherTopicSetupPage() {
   const [assignedItemTitle, setAssignedItemTitle] = useState('');
   const [assignmentNotes, setAssignmentNotes] = useState('');
   const [assignmentDeadline, setAssignmentDeadline] = useState('2026-06-25');
+  const [publishing, setPublishing] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [assignError, setAssignError] = useState<string | null>(null);
+
+  const mapAssetTypeToAssignmentType = (assetType: string): string => {
+    switch (assetType) {
+      case 'concept_video': return 'video';
+      case 'simulation': return 'simulation';
+      case 'three_d_model': return 'model';
+      case 'quiz': return 'quiz';
+      case 'explain_it': return 'explain_ai';
+      case 'predict_it': return 'predict_ai';
+      case 'spot_it': return 'spot_it';
+      case 'connect_it': return 'connect_it';
+      default: return assetType;
+    }
+  };
+
+  const handlePublishAssignment = async () => {
+    if (!classId || !chapterId || !activeAsset) return;
+    setPublishing(true);
+    setAssignError(null);
+    try {
+      const assignmentType = mapAssetTypeToAssignmentType(activeAsset.asset_type);
+      await api.post(`/teachers/classes/${classId}/assignments`, {
+        chapter_id: chapterId,
+        assignment_type: assignmentType,
+        title: activeAsset.title,
+        instructions: assignmentNotes,
+      });
+      setSuccess(true);
+      // Wait 1.5s then navigate back to chapter setup page
+      setTimeout(() => {
+        setIsSuccessModalOpen(false);
+        navigate(`/teacher/chapter-setup/${classId}/${chapterId}`);
+      }, 1500);
+    } catch (err: any) {
+      console.error("Failed to create assignment:", err);
+      setAssignError(err?.detail || err?.message || 'Failed to create assignment. Please try again.');
+    } finally {
+      setPublishing(false);
+    }
+  };
+
   const [regenText, setRegenText] = useState('');
   const [generationEndsAt, setGenerationEndsAt] = useState<number | null>(null);
   const [generationError, setGenerationError] = useState<string | null>(null);
@@ -265,6 +309,8 @@ export function TeacherTopicSetupPage() {
                 onClick={() => {
                   setAssignedItemTitle(activeAsset.title);
                   setAssignmentNotes(`Hey students! Please complete this interactive topic resource on "${activeAsset.title}".`);
+                  setSuccess(false);
+                  setAssignError(null);
                   setIsSuccessModalOpen(true);
                 }}
                 className="shrink-0 bg-[#1800ad] text-[#f6f4ee] hover:bg-amber-300 hover:text-[#1800ad] px-6 py-3 rounded-full text-xs font-black uppercase tracking-widest transition-all shadow-md flex items-center gap-1.5 h-fit self-end sm:self-start"
@@ -469,62 +515,109 @@ export function TeacherTopicSetupPage() {
               className="bg-[#f6f4ee] rounded-[32px] p-6 lg:p-8 max-w-lg w-full border-2 border-[#1800ad] text-[#1800ad] font-montserrat relative shadow-2xl"
             >
               
-              <div className="w-14 h-14 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center mx-auto mb-4 border-2 border-emerald-500/40 animate-pulse">
-                <CheckCircle2 size={32} className="stroke-[2.5]" />
-              </div>
-
-              <h3 className="text-xl font-black tracking-tight text-[#1800ad] text-center mb-1 leading-snug">
-                Material Assigned Successfully!
-              </h3>
-              
-              <p className="text-xs text-center text-[#1800ad]/75 font-semibold mb-6 uppercase tracking-wider">
-                Student group notified on dashboard
-              </p>
-
-              {/* ASSIGNMENT SPECS SUMMARY BOX */}
-              <div className="bg-[#1800ad]/5 rounded-2xl p-4 flex flex-col gap-3.5 mb-6 border border-[#1800ad]/10">
-                <div className="flex items-center gap-2">
-                  <Flame className="text-[#1800ad] stroke-[2.5] shrink-0" size={16} />
-                  <div>
-                    <span className="block text-[9px] font-black uppercase tracking-widest leading-none text-[#1800ad]/60">Assigned Resource</span>
-                    <span className="block text-xs font-extrabold text-[#1800ad] mt-0.5">{assignedItemTitle}</span>
+              {success ? (
+                <>
+                  <div className="w-14 h-14 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center mx-auto mb-4 border-2 border-emerald-500/40 animate-pulse">
+                    <CheckCircle2 size={32} className="stroke-[2.5]" />
                   </div>
-                </div>
 
-                <div className="flex items-center gap-3 border-t border-[#1800ad]/10 pt-3">
-                  <Calendar className="text-[#1800ad] stroke-[2.5] shrink-0" size={18} />
-                  <div className="flex-1">
-                    <span className="block text-[9px] font-black uppercase tracking-widest leading-none text-[#1800ad]/60 mb-1">Set Assessment Deadline</span>
-                    <input
-                      type="date"
-                      value={assignmentDeadline}
-                      onChange={(e) => setAssignmentDeadline(e.target.value)}
-                      className="bg-[#f6f4ee] text-[#1800ad] border-2 border-[#1800ad]/25 hover:border-[#1800ad] focus:border-[#1800ad] px-3 py-1.5 text-xs font-bold rounded-lg focus:outline-none w-full font-montserrat"
-                    />
+                  <h3 className="text-xl font-black tracking-tight text-[#1800ad] text-center mb-1 leading-snug">
+                    Material Assigned Successfully!
+                  </h3>
+                  
+                  <p className="text-xs text-center text-[#1800ad]/75 font-semibold mb-6 uppercase tracking-wider">
+                    Student group notified on dashboard
+                  </p>
+
+                  <div className="flex flex-col gap-2.5">
+                    <button
+                      onClick={() => {
+                        setIsSuccessModalOpen(false);
+                        navigate(`/teacher/chapter-setup/${classId}/${chapterId}`);
+                      }}
+                      className="w-full bg-[#1800ad] hover:bg-amber-300 hover:text-[#1800ad] text-[#f6f4ee] py-3.5 rounded-full text-xs font-extrabold uppercase tracking-widest active:scale-95 transition-all text-center font-montserrat shadow-md"
+                    >
+                      Return to Chapter Setup
+                    </button>
                   </div>
-                </div>
+                </>
+              ) : (
+                <>
+                  <h3 className="text-xl font-black tracking-tight text-[#1800ad] mb-2 leading-snug">
+                    Assign to Class
+                  </h3>
+                  <p className="text-xs font-semibold opacity-75 mb-6">
+                    Configure assignment details for your students.
+                  </p>
 
-                <div className="border-t border-[#1800ad]/10 pt-3">
-                  <span className="block text-[9px] font-black uppercase tracking-widest leading-none text-[#1800ad]/60 mb-1.5 flex items-center gap-1">
-                    <FileText size={11} /> Teacher Instructions Notes
-                  </span>
-                  <textarea
-                    rows={2.5}
-                    value={assignmentNotes}
-                    onChange={(e) => setAssignmentNotes(e.target.value)}
-                    className="w-full bg-[#f6f4ee] text-[#1800ad] placeholder-[#1800ad]/40 border border-[#1800ad]/20 p-2.5 rounded-lg text-[11px] font-semibold focus:outline-none focus:border-[#1800ad] font-montserrat resize-none"
-                  />
-                </div>
-              </div>
+                  <div className="bg-[#1800ad]/5 rounded-2xl p-4 flex flex-col gap-3.5 mb-6 border border-[#1800ad]/10">
+                    <div className="flex items-center gap-2">
+                      <Flame className="text-[#1800ad] stroke-[2.5] shrink-0" size={16} />
+                      <div>
+                        <span className="block text-[9px] font-black uppercase tracking-widest leading-none text-[#1800ad]/60">Assigned Resource</span>
+                        <span className="block text-xs font-extrabold text-[#1800ad] mt-0.5">{assignedItemTitle}</span>
+                      </div>
+                    </div>
 
-              <div className="flex flex-col gap-2.5">
-                <button
-                  onClick={() => setIsSuccessModalOpen(false)}
-                  className="w-full bg-[#1800ad] hover:bg-amber-300 hover:text-[#1800ad] text-[#f6f4ee] py-3.5 rounded-full text-xs font-extrabold uppercase tracking-widest active:scale-95 transition-all text-center font-montserrat shadow-md"
-                >
-                  Save and return
-                </button>
-              </div>
+                    <div className="flex items-center gap-3 border-t border-[#1800ad]/10 pt-3">
+                      <Calendar className="text-[#1800ad] stroke-[2.5] shrink-0" size={18} />
+                      <div className="flex-1">
+                        <span className="block text-[9px] font-black uppercase tracking-widest leading-none text-[#1800ad]/60 mb-1">Set Assessment Deadline</span>
+                        <input
+                          type="date"
+                          value={assignmentDeadline}
+                          onChange={(e) => setAssignmentDeadline(e.target.value)}
+                          className="bg-[#f6f4ee] text-[#1800ad] border-2 border-[#1800ad]/25 hover:border-[#1800ad] focus:border-[#1800ad] px-3 py-1.5 text-xs font-bold rounded-lg focus:outline-none w-full font-montserrat"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="border-t border-[#1800ad]/10 pt-3">
+                      <span className="block text-[9px] font-black uppercase tracking-widest leading-none text-[#1800ad]/60 mb-1.5 flex items-center gap-1">
+                        <FileText size={11} /> Teacher Instructions Notes
+                      </span>
+                      <textarea
+                        rows={2.5}
+                        value={assignmentNotes}
+                        onChange={(e) => setAssignmentNotes(e.target.value)}
+                        className="w-full bg-[#f6f4ee] text-[#1800ad] placeholder-[#1800ad]/40 border border-[#1800ad]/20 p-2.5 rounded-lg text-[11px] font-semibold focus:outline-none focus:border-[#1800ad] font-montserrat resize-none"
+                      />
+                    </div>
+                  </div>
+
+                  {assignError && (
+                    <div className="mb-4 text-xs font-bold text-rose-600">
+                      {assignError}
+                    </div>
+                  )}
+
+                  <div className="flex gap-4">
+                    <button
+                      type="button"
+                      disabled={publishing}
+                      onClick={() => setIsSuccessModalOpen(false)}
+                      className="flex-1 py-3.5 border-2 border-[#1800ad] rounded-full text-xs font-black uppercase tracking-wider text-center"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      disabled={publishing}
+                      onClick={handlePublishAssignment}
+                      className="flex-1 bg-[#1800ad] hover:bg-[#1800ad]/90 text-white rounded-full py-3.5 text-xs font-black uppercase tracking-widest text-center flex items-center justify-center gap-2"
+                    >
+                      {publishing ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-t-white border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin" />
+                          <span>Publishing...</span>
+                        </>
+                      ) : (
+                        <span>Publish</span>
+                      )}
+                    </button>
+                  </div>
+                </>
+              )}
 
             </motion.div>
           </div>
