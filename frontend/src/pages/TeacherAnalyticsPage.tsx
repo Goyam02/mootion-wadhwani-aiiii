@@ -270,7 +270,7 @@ export function TeacherAnalyticsPage() {
       {/* Mobile Nav */}
       <nav className="md:hidden fixed bottom-4 left-4 right-4 bg-[#1800ad] px-6 py-2.5 flex justify-between items-center z-40 rounded-full border-[2px] border-[#f6f4ee] shadow-xl">
         <NavItem icon={<LayoutDashboard size={24} />} onClick={() => navigate('/teacher/home')} />
-        <NavItem icon={<BookOpen size={24} />} onClick={() => navigate('/teacher/class/class-8-physics')} />
+        <NavItem icon={<BookOpen size={24} />} onClick={() => navigate('/teacher/class/class-8-science')} />
         <NavItem icon={<BarChart2 size={24} />} active onClick={() => navigate('/teacher/analytics')} />
         <NavItem icon={<MessageSquare size={24} />} onClick={() => navigate('/teacher/doubts')} />
       </nav>
@@ -282,7 +282,7 @@ export function TeacherAnalyticsPage() {
         </div>
         <nav className="flex flex-col gap-6 w-full items-center my-auto">
           <NavItem icon={<LayoutDashboard size={24} />} onClick={() => navigate('/teacher/home')} />
-          <NavItem icon={<BookOpen size={24} />} onClick={() => navigate('/teacher/class/class-8-physics')} />
+          <NavItem icon={<BookOpen size={24} />} onClick={() => navigate('/teacher/class/class-8-science')} />
           <NavItem icon={<BarChart2 size={24} />} active onClick={() => navigate('/teacher/analytics')} />
           <NavItem icon={<MessageSquare size={24} />} onClick={() => navigate('/teacher/doubts')} />
         </nav>

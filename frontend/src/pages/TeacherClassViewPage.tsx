@@ -36,28 +36,78 @@ export function TeacherClassViewPage() {
       setError(null);
       try {
         const classes = await api.get('/teachers/classes');
+        console.log("EXACT RAW CLASSES:", classes);
         
-        const rawId = (id || '').toLowerCase();
-        const parts = rawId.split('-');
-        const classIdx = parts.indexOf('class');
-        let gradeVal = '';
-        if (classIdx !== -1 && parts[classIdx + 1]) {
-          gradeVal = parts[classIdx + 1];
-        } else {
-          const match = rawId.match(/\d+/);
-          if (match) gradeVal = match[0];
-        }
-        const subjectPart = parts
-          .filter((p) => p !== 'class' && p !== gradeVal)
-          .join(' ');
+        const rawId = (id || '').toLowerCase().trim();
+        
+        const normalizeGrade = (g: any): string => {
+          if (g === null || g === undefined) return '';
+          const str = String(g).trim().toLowerCase();
+          const digits = str.replace(/\D/g, '');
+          return digits || str;
+        };
 
-        const matchedClass = classes.find((c: any) => 
-          (c.grade.toLowerCase() === gradeVal.toLowerCase() || c.grade.replace(/\D/g, '') === gradeVal) &&
-          c.subject.toLowerCase() === subjectPart.toLowerCase()
-        );
+        const normalizeSubject = (s: any): string => {
+          if (s === null || s === undefined) return '';
+          return String(s).trim().toLowerCase().replace(/[\s\-_]+/g, ' ');
+        };
+
+        let parsedGrade = '';
+        let parsedSubject = '';
+
+        const matchedClass = classes.find((c: any) => {
+          if (c.class_id && c.class_id.toLowerCase() === rawId) {
+            parsedGrade = c.grade;
+            parsedSubject = c.subject;
+            return true;
+          }
+
+          const parts = rawId.split('-');
+          const classIdx = parts.indexOf('class');
+          let gradeVal = '';
+          if (classIdx !== -1 && parts[classIdx + 1]) {
+            gradeVal = parts[classIdx + 1];
+          } else {
+            const match = rawId.match(/\d+/);
+            if (match) gradeVal = match[0];
+          }
+          const subjectPart = parts
+            .filter((p) => p !== 'class' && p !== gradeVal)
+            .join(' ');
+
+          parsedGrade = gradeVal;
+          parsedSubject = subjectPart;
+
+          const classGradeNormalized = normalizeGrade(c.grade);
+          const targetGradeNormalized = normalizeGrade(gradeVal);
+
+          const classSubjectNormalized = normalizeSubject(c.subject);
+          const targetSubjectNormalized = normalizeSubject(subjectPart);
+
+          // 1. Direct standard match
+          if (classGradeNormalized === targetGradeNormalized && classSubjectNormalized === targetSubjectNormalized) {
+            return true;
+          }
+
+          // 2. Science fallback match for grades 5-10:
+          // If the URL parsed subject is physics/chemistry/biology, and the class in db is Science
+          const numericGrade = parseInt(targetGradeNormalized, 10);
+          if (
+            !isNaN(numericGrade) &&
+            numericGrade >= 5 &&
+            numericGrade <= 10 &&
+            classGradeNormalized === targetGradeNormalized &&
+            classSubjectNormalized === 'science' &&
+            ['physics', 'chemistry', 'biology'].includes(targetSubjectNormalized)
+          ) {
+            return true;
+          }
+
+          return false;
+        });
 
         if (!matchedClass) {
-          throw new Error(`Class not found for grade "${gradeVal}" and subject "${subjectPart}"`);
+          throw new Error(`Class not found for grade "${parsedGrade || 'unknown'}" and subject "${parsedSubject || 'unknown'}"`);
         }
 
         setResolvedClass(matchedClass);

@@ -146,13 +146,37 @@ export function TeacherDashboardPage() {
     navigate(`/teacher/class/${g}-${s}`);
   };
 
+  const handleClassroomNav = () => {
+    if (classes && classes.length > 0) {
+      const firstClass = classes[0];
+      const g = firstClass.grade.toLowerCase().replace(/\s+/g, '-');
+      const s = firstClass.subject.toLowerCase().replace(/\s+/g, '-');
+      navigate(`/teacher/class/${g}-${s}`);
+    } else {
+      navigate('/teacher/class/class-8-science');
+    }
+  };
+
+  const getSubjectsForGradeCard = (gradeName: string, allSubjects: string[]) => {
+    const num = getGradeNum(gradeName);
+    if (num >= 5 && num <= 10) {
+      const list: string[] = [];
+      const hasScience = allSubjects.some(s => ['physics', 'chemistry', 'biology', 'science'].includes(s.toLowerCase()));
+      if (hasScience) list.push('Science');
+      if (allSubjects.some(s => s.toLowerCase() === 'mathematics')) list.push('Mathematics');
+      return list;
+    } else {
+      return allSubjects.filter(s => s.toLowerCase() !== 'science');
+    }
+  };
+
   return (
     <div className="flex flex-1 w-full bg-[#1800ad] font-montserrat text-[#1800ad] relative">
       
       {/* Mobile Bottom Navigation Bar */}
       <nav className="md:hidden fixed bottom-4 left-4 right-4 bg-[#1800ad] px-8 py-2.5 flex justify-between items-center z-40 rounded-full shadow-[0_10px_40px_rgba(24,0,173,0.25)] border-[2px] border-[#f6f4ee]">
         <NavItem icon={<LayoutDashboard size={24} />} active onClick={() => navigate('/teacher/home')} />
-        <NavItem icon={<BookOpen size={24} />} onClick={() => navigate('/teacher/class/class-8-physics')} />
+        <NavItem icon={<BookOpen size={24} />} onClick={handleClassroomNav} />
         <NavItem icon={<BarChart2 size={24} />} onClick={() => navigate('/teacher/analytics')} />
         <NavItem icon={<MessageSquare size={24} />} onClick={() => navigate('/teacher/doubts')} />
       </nav>
@@ -185,7 +209,7 @@ export function TeacherDashboardPage() {
         {/* Navigation */}
         <nav className="flex flex-col gap-6 w-full items-center my-auto">
           <NavItem icon={<LayoutDashboard size={24} />} active onClick={() => navigate('/teacher/home')} />
-          <NavItem icon={<BookOpen size={24} />} onClick={() => navigate('/teacher/class/class-8-physics')} />
+          <NavItem icon={<BookOpen size={24} />} onClick={handleClassroomNav} />
           <NavItem icon={<BarChart2 size={24} />} onClick={() => navigate('/teacher/analytics')} />
           <NavItem icon={<MessageSquare size={24} />} onClick={() => navigate('/teacher/doubts')} />
         </nav>
@@ -268,13 +292,13 @@ export function TeacherDashboardPage() {
                         </button>
 
                         <div className="text-[10px] sm:text-xs font-bold text-[#1800ad]/70 bg-[#1800ad]/10 px-3 py-1 rounded-full uppercase tracking-wider">
-                          {subjects.length} Subjects Configured
+                          {getSubjectsForGradeCard(grade, subjects).length} Subjects Configured
                         </div>
                       </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {subjects.map((subj) => {
+                      {getSubjectsForGradeCard(grade, subjects).map((subj) => {
                         return (
                           <motion.div
                             key={subj}

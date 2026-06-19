@@ -20,7 +20,7 @@ import {
 export function TeacherBroadcastPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const classId = searchParams.get('classId') || 'class-8-physics';
+  const classId = searchParams.get('classId') || 'class-8-science';
 
   const [isPlaying, setIsPlaying] = useState(true);
   const [currentSlide, setCurrentSlide] = useState<'video' | 'simulation'>('video');

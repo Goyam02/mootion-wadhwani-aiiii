@@ -251,7 +251,7 @@ export function TeacherChapterSetupPage() {
       setPublishing(false);
       setSuccess(true);
       setTimeout(() => {
-        navigate(`/teacher/class/${classId || 'class-8-physics'}`);
+        navigate(`/teacher/class/${classId || 'class-8-science'}`);
       }, 1500);
     }, 1800);
   };
@@ -290,7 +290,7 @@ export function TeacherChapterSetupPage() {
           {/* Back Trigger */}
           <div className="flex items-center gap-3 mb-6">
             <button 
-              onClick={() => navigate(`/teacher/class/${classId || 'class-8-physics'}`)}
+              onClick={() => navigate(`/teacher/class/${classId || 'class-8-science'}`)}
               className="p-2 border-2 border-[#1800ad] rounded-full text-[#1800ad] hover:bg-[#1800ad]/10 transition-colors"
             >
               <ArrowLeft size={16} className="stroke-[3]" />
